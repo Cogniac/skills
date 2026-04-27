@@ -14,9 +14,18 @@ and the public-skill workstream at
 
 | Skill | What it teaches |
 |-------|-----------------|
-| [`cogniac`](skills/cogniac/) | Installing the `cogniac` pip package, authenticating, using the Python SDK and `cogniac` CLI, and working with the Cogniac public API end-to-end. |
+| [`cogniac`](skills/cogniac/) | Installing the `cogniac` Python package, authenticating, using the Python SDK and `cogniac` CLI, and working with the Cogniac public API end-to-end. |
 
 More skills will follow as the platform's agentic surface area grows.
+
+## Python tooling: `uv` recommended
+
+Skill examples in this repo show Python install commands using
+[`uv`](https://docs.astral.sh/uv/) as the recommended tool — it is significantly
+faster than `pip` for installs and lockfile resolution, and handles Python
+version selection automatically without separate `pyenv` / venv setup.
+Equivalent `pip` commands are shown alongside for users who prefer the standard
+toolchain; the skills themselves work with either.
 
 ## Install
 

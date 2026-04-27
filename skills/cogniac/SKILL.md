@@ -41,6 +41,15 @@ infrastructure, this skill does not cover those — defer to internal docs.
 The Cogniac SDK is published on PyPI as `cogniac` and supports Python 2.7 and
 Python 3.
 
+Recommended install with [`uv`](https://docs.astral.sh/uv/) (faster than pip,
+handles Python version selection automatically):
+
+```bash
+uv pip install cogniac
+```
+
+Or, with pip:
+
 ```bash
 pip install cogniac
 ```

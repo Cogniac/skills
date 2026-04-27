@@ -17,7 +17,7 @@ A one-paragraph overview of what this skill does and when it applies.
 
 ## Prerequisites
 
-- e.g. `pip install cogniac`
+- e.g. `uv pip install cogniac` (or `pip install cogniac`)
 - e.g. `COG_API_KEY` environment variable set
 - e.g. an active Cogniac tenant
 
