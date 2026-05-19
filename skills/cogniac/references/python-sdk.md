@@ -59,11 +59,12 @@ cc = CogniacConnection()
 
 # GET — a non-/1 versioned endpoint the SDK doesn't wrap.
 # From references/api/evaluation-metrics-api.md:
-#   GET /22/applications/{application_id}/evaluation_metrics
-resp = cc._get(f"/22/applications/{app_id}/evaluation_metrics")
-for m in resp.json():
-    primary = "primary" if m["primary"] else ""
-    print(m["evaluation_metric_hash"], primary, m["evaluation_metric"]["name"])
+#   GET /22/schemas/evaluation_metrics
+# Returns the JSON Schema for every supported evaluation-metric type
+# (box_F1, segmentation_IoU, point_count_F1, …). No IDs to look up.
+resp = cc._get("/22/schemas/evaluation_metrics")
+for metric_name, schema in resp.json().items():
+    print(metric_name, "→", schema.get("title", ""))
 
 # POST — attach a short message to a media item.
 # From references/api/message-core-api.md:
@@ -103,6 +104,10 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 - `app.post_feedback(media_id, subjects)` — submit feedback
 - `app.usage(start, end)` — yields usage records
 - `app.accumulate_usage(start, end)` — returns cumulative usage
+- `app.evaluation_metrics()` — returns list of active evaluation metric configs (each with `evaluation_metric_hash`, `primary`/`active` flags, and the metric body — name, detection thresholds, subject weights, tolerances)
+- `app.leaderboard(set_assignment='validation', snapshot_type='regular', eval_metrics='primary')` — returns the most recent ranked-candidate-model snapshot dict (`snapshot` is the ranked list with rank, F1, precision/recall, TP/FP/FN per model). `set_assignment` ∈ {`validation`,`training`}; `snapshot_type` ∈ {`regular`,`int8`}; `eval_metrics` ∈ {`primary`,`all`}. Returns `{'message': ...}` if no snapshot exists yet.
+- `app.add_input_subject(subject)` / `app.add_output_subject(subject)` — wire a subject into the app's pipeline
+- `app.delete()` — delete the application
 
 ## CogniacSubject
 
@@ -154,6 +159,12 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 - `ef.trigger_camera_capture(subject_uid, trigger_domain_unit=None)` — trigger camera
 - `ef.ping(ping_id=None)` — ping device
 - `ef.get_version()` — get EdgeFlow software version
+- `ef.time_bound_media_upload(start_time, end_time)` — request the device to upload images captured in a time window back to CloudCore
+- `ef.flush_upload_queue(start_time=None, end_time=None)` — flush the device-to-CloudCore upload queue (optionally bounded to a time window)
+- `ef.reboot()` — reboot the EdgeFlow
+- `ef.upgrade(software_version)` — upgrade the EdgeFlow to a specific software version
+- `ef.set_boot_software_version(software_version)` — set the boot/target software version without an immediate upgrade
+- `ef.factory_reset()` — factory-reset the EdgeFlow (also deletes the EdgeFlow record in CloudCore/SiteCore)
 
 ### Status Subsystems
 `model_detections*` (per-app stats), `gpus` (GPU utilization/temp), `upload` (queue stats), `ifconfig` (network), `ping`
@@ -162,6 +173,46 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 
 ### Key Fields
 `network_camera_id`, `camera_name`, `url`, `active`, `description`, `lat`, `lon`
+
+### Methods
+- `camera.update(url=None, camera_name=None, ...)` — patch camera fields
+- `camera.delete()` — delete the camera
+
+## CogniacUser
+
+Returned by `cc.user`. Exposes the calling user's API-key management.
+
+### Methods
+- `user.api_keys()` — list the user's API keys
+- `user.api_key(key_id)` — fetch a specific API key
+- `user.create_api_key(description)` — create a new API key
+- `user.delete_api_key(key_id)` — revoke an API key
+
+## CogniacOpsReview
+
+Operations-review queue: a tenant-wide work queue where items (typically media-with-context payloads) are added for human review and reviewers post pass/fail-style results. Distinct from the labeling feedback queue.
+
+### Classmethods (factories)
+- `CogniacOpsReview.create(connection, review_items, review_unit=None)` — enqueue a new review item
+- `CogniacOpsReview.get(connection)` — pop a single pending item from the queue
+- `CogniacOpsReview.get_pending(connection)` — return the count of pending items
+- `CogniacOpsReview.create_result(connection, review_id, result, comment=None)` — record a reviewer decision for an item
+- `CogniacOpsReview.search(connection, review_unit=None, media_id=None, external_media_id=None, result=None, ...)` — search reviews by media/unit/result; yields paginated results
+
+### Methods
+- `review.delete()` — delete the review item
+
+## CogniacExternalResult
+
+Records produced by external (non-Cogniac) systems that are attached to media or to a customer-defined `domain_unit` (e.g., a serial number) for later cross-reference. Useful for closing the loop between Cogniac inference output and downstream system decisions.
+
+### Classmethods (factories)
+- `CogniacExternalResult.create(connection, result_type, result, media_id=None, domain_unit=None)` — record an external result
+- `CogniacExternalResult.get(connection, external_result_id)` — fetch a single record
+- `CogniacExternalResult.search(connection, media_id=None, domain_unit=None, time_start=None, time_end=None, reverse=True, limit=None)` — search by media, domain unit, or time window
+
+### Methods
+- `result.delete()` — delete the external result
 
 ## Error Classes
 - `CredentialError` (401) — invalid credentials, triggers re-auth

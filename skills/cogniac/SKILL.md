@@ -68,6 +68,8 @@ cogniac tenant                                  # current tenant info
 ```bash
 cogniac apps list                               # list all apps in tenant
 cogniac apps get <application_id>               # get app details
+cogniac apps eval-metrics <application_id>      # list active evaluation-metric configs (point_count_F1, etc.) with detection thresholds, subject weights, primary/active flags
+cogniac apps leaderboard <application_id>       # ranked candidate-model snapshot. Flags: --set-assignment {validation,training}, --snapshot-type {regular,int8}, --eval-metrics {primary,all}, --top N, --full
 ```
 
 ### Subjects
