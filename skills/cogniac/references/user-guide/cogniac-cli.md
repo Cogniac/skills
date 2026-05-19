@@ -63,8 +63,8 @@ cogniac apps list --format table
   List all subjects belonging to the currently authenticated tenant.
 - `cogniac subjects get <subject_uid>`
   Get a specific subject.
-- `cogniac subjects search [--prefix P] [--name N] [--similar S] [--ids ID ...] [--limit L]`
-  Search subjects with filters. `--prefix` filters by name prefix, `--similar` finds semantically similar subjects, `--name` matches exact name, `--ids` retrieves specific UIDs, `--limit` sets max results (default: 10).
+- `cogniac subjects search [--name N] [--ids ID ...]`
+  Search subjects with filters. `--name` matches exact name, `--ids` retrieves specific UIDs.
 - `cogniac subjects media <subject_uid> [--limit L] [--consensus C] [--probability-lower P] [--probability-upper P]`
   List media associations for a subject. `--consensus` filters by `True`, `False`, or `Sidelined`.
 - `cogniac subjects create <name> [--description D] [--external-id E]`
@@ -73,7 +73,7 @@ cogniac apps list --format table
   Associate media with a subject. `--consensus` sets the label: `True`, `False`, `Sidelined`, or `None` (default: `None`).
 
 ```bash
-cogniac subjects search --prefix "defect" --limit 20 --format table
+cogniac subjects search --name "Defect" --format table
 
 cogniac subjects create "My Subject" --description "Defect detection subject"
 

@@ -75,9 +75,7 @@ cogniac apps get <application_id>               # get app details
 ```bash
 cogniac subjects list                           # list all subjects
 cogniac subjects get <subject_uid>              # get subject details
-cogniac subjects search --name "exact name"     # exact name match — use when you know the name
-cogniac subjects search --prefix "defect"       # name starts with — use for autocomplete-style lookup
-cogniac subjects search --similar "scratch"     # semantic similarity — use when concept is fuzzy
+cogniac subjects search --name "exact name"     # exact name match
 cogniac subjects media <subject_uid>            # list media associations
 cogniac subjects media <subject_uid> --limit 10 --consensus True
 cogniac subjects create "My Subject" --description "desc"
