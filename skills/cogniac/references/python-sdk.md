@@ -89,8 +89,6 @@ message_id = resp.json()["message_id"]
 
 Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) when one exists — it returns typed objects rather than raw JSON. Drop down to `_get`/`_post` only for endpoints the SDK doesn't cover.
 
-One concrete example worth knowing: `GET /1/applications/{id}/consensusHistory` returns the per-output-subject consensus-count time series for an application (per-timestamp counts of `True` / `False` / `Sidelined` assertions, grouped by subject). It's the primary "is this app still producing labels, and how is the rate trending?" signal, has no SDK or CLI equivalent, and works with no required parameters beyond `app_id`.
-
 ## CogniacApplication
 
 ### Key Fields
