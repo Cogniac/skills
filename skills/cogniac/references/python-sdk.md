@@ -109,6 +109,22 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 - `app.add_input_subject(subject)` / `app.add_output_subject(subject)` — wire a subject into the app's pipeline
 - `app.delete()` — delete the application
 
+**Attribute assignment triggers updates.** Assigning to most fields on a `CogniacApplication` object automatically POSTs the change to the API — no separate `.save()` or `.update()` call needed. Common patterns:
+
+```python
+app.active = False                          # deactivate
+app.input_subjects = ["uid1", "uid2"]       # replace full input list
+app.output_subjects = ["uid3"]              # replace full output list
+app.name = "New Name"
+```
+
+> **This pattern applies across SDK objects** — `CogniacSubject`, `CogniacMedia`, and others also trigger API updates on field assignment.
+>
+> **Setting attributes that don't exist yet is fine.** If the object was fetched without a field (e.g. a subject with no `custom_data`), the attribute won't be present locally — but assigning to it still works and POSTs the value to the API:
+> ```python
+> subject.custom_data = '{"note": "re-review"}'  # works even if subject.custom_data didn't exist
+> ```
+
 ## CogniacSubject
 
 ### Key Fields
