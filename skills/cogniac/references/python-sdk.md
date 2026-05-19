@@ -1,0 +1,126 @@
+# Cogniac Python SDK Reference
+
+## CogniacConnection
+
+Entry point for all API interaction. Reads auth from env vars or constructor args.
+
+```python
+from cogniac import CogniacConnection
+
+cc = CogniacConnection()  # reads COG_API_KEY or COG_USER/COG_PASS, COG_TENANT, COG_URL_PREFIX
+cc = CogniacConnection(username="user@example.com", password="pass", tenant_id="abc123")
+cc = CogniacConnection(api_key="key", tenant_id="abc123")
+```
+
+### Properties
+- `cc.tenant` — CogniacTenant object
+- `cc.user` — CogniacUser object
+- `cc.tenant_id` — current tenant ID
+- `cc.url_prefix` — API endpoint URL
+
+### Methods
+- `cc.get_all_applications()` — returns list of CogniacApplication
+- `cc.get_application(application_id)` — returns CogniacApplication
+- `cc.create_application(name, application_type, ...)` — returns CogniacApplication
+- `cc.get_all_subjects(public_read=False, public_write=False)` — returns list of CogniacSubject
+- `cc.get_subject(subject_uid)` — returns CogniacSubject
+- `cc.search_subjects(ids=[], prefix=None, similar=None, name=None, limit=10)` — returns list
+- `cc.create_subject(name, description=None, external_id=None)` — returns CogniacSubject
+- `cc.get_media(media_id)` — returns CogniacMedia
+- `cc.search_media(md5=None, filename=None, external_media_id=None, domain_unit=None, limit=None)` — returns list
+- `cc.create_media(filename, meta_tags=None, external_media_id=None, domain_unit=None, ...)` — returns CogniacMedia
+- `cc.get_all_edgeflows()` — returns list of CogniacEdgeFlow
+- `cc.get_edgeflow(edgeflow_id)` — returns CogniacEdgeFlow
+- `cc.get_all_cameras()` — returns list of CogniacNetworkCamera
+- `cc.get_camera(network_camera_id)` — returns CogniacNetworkCamera
+- `cc.get_version(auth=False)` — returns dict with API version info
+- `CogniacConnection.get_all_authorized_tenants(username, password, url_prefix)` — classmethod, returns tenant list
+
+## CogniacApplication
+
+### Key Fields
+`application_id`, `name`, `type`, `description`, `active`, `input_subjects`, `output_subjects`, `app_managers`, `app_type_config`, `created_at`, `created_by`
+
+### Methods
+- `app.detections(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, limit=None, consensus_none=False)` — yields detection dicts
+- `app.models(start=None, end=None, limit=None, reverse=True)` — yields released model dicts
+- `app.model_name()` — returns name of current best model
+- `app.download_model(model_id=None)` — downloads model file
+- `app.pending_feedback()` — returns count of pending feedback
+- `app.get_feedback(limit=10)` — returns feedback request messages
+- `app.post_feedback(media_id, subjects)` — submit feedback
+- `app.usage(start, end)` — yields usage records
+- `app.accumulate_usage(start, end)` — returns cumulative usage
+
+## CogniacSubject
+
+### Key Fields
+`subject_uid`, `name`, `description`, `external_id`, `public_read`, `public_write`, `created_at`, `created_by`
+
+### Methods
+- `subject.media_associations(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, consensus=None, sort_probability=False, limit=None)` — yields association dicts
+- `subject.associate_media(media, focus=None, consensus='None', probability=None, force_feedback=False)` — associate media with subject
+- `subject.disassociate_media(media, focus=None)` — remove association
+- `subject.create_reference_media(filename, ...)` — upload reference media
+- `subject.delete()` — delete subject
+
+### Media Association Dict Fields
+`media_id`, `subject_uid`, `probability` (0-1), `consensus` ('True'/'False'/'Sidelined'/None), `timestamp`, `focus`, `app_data_type`, `app_data`
+
+## CogniacMedia
+
+### Key Fields
+`media_id`, `filename`, `media_format`, `image_width`, `image_height`, `size`, `hash` (MD5), `status`, `media_url`, `external_media_id`, `domain_unit`, `meta_tags`, `custom_data`, `created_at`
+
+### Methods
+- `media.detections(wait_capture_id=None)` — returns detection list
+- `media.subjects()` — returns associated subjects
+- `media.download(filep=None, timeout=60)` — download media file
+- `media.delete()` — delete media
+
+## CogniacTenant
+
+### Key Fields
+`tenant_id`, `name`, `description`, `region`, `created_at`
+
+### Methods
+- `tenant.users()` — returns user list
+- `tenant.usage(start, end, period='15min')` — yields usage records
+- `tenant.add_user(user_email, role='tenant_user')` — add user
+- `tenant.delete_user(user_email)` — remove user
+- `tenant.set_user_role(user_email, role)` — change user role
+
+## CogniacEdgeFlow
+
+### Key Fields
+`gateway_id`, `name`, `model`, `description`
+
+### Methods
+- `ef.status(subsystem_name=None, start=None, end=None, reverse=True, limit=None)` — yields status events
+- `ef.get_aggregated_stats(start=None, end=None)` — returns detection/pixel counts
+- `ef.process_media(subject_uid, filename, ...)` — upload media for edge processing
+- `ef.trigger_camera_capture(subject_uid, trigger_domain_unit=None)` — trigger camera
+- `ef.ping(ping_id=None)` — ping device
+- `ef.get_version()` — get EdgeFlow software version
+
+### Status Subsystems
+`model_detections*` (per-app stats), `gpus` (GPU utilization/temp), `upload` (queue stats), `ifconfig` (network), `ping`
+
+## CogniacNetworkCamera
+
+### Key Fields
+`network_camera_id`, `camera_name`, `url`, `active`, `description`, `lat`, `lon`
+
+## Error Classes
+- `CredentialError` (401) — invalid credentials, triggers re-auth
+- `ServerError` (5xx) — retryable with exponential backoff
+- `ClientError` (4xx) — not retried
+
+## Environment Variables
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `COG_API_KEY` | API key auth | — |
+| `COG_USER` | Username (email) | — |
+| `COG_PASS` | Password | — |
+| `COG_TENANT` | Tenant ID | — |
+| `COG_URL_PREFIX` | API endpoint | `https://api.cogniac.io/` |
