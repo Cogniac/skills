@@ -102,10 +102,11 @@ cogniac media upload /path/to/image.jpg --subject-uid <subject_uid>  # upload an
 ```bash
 cogniac edgeflows list                          # list all EdgeFlow devices
 cogniac edgeflows get <gateway_id>              # get device details
-cogniac edgeflows status <gateway_id>           # recent status events
-cogniac edgeflows status <gateway_id> --subsystem gpus  # GPU utilization/temp
-cogniac edgeflows status <gateway_id> --subsystem model_detections --limit 5
+cogniac edgeflows status <gateway_id>           # recent status events (all subsystems)
+cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU sample
 ```
+
+`--subsystem` is an exact-match filter. Built-in subsystems include `gpus`, `upload`, and per-deployed-model detection counters named `model_detections_<model_instance_id>` (one per model). To see what a device is currently reporting, run `cogniac edgeflows status <gateway_id>` with no filter and inspect the `subsystem` field, then query a specific one — e.g. `--subsystem model_detections_hawmlqhs --limit 5`.
 
 ### Cameras
 
