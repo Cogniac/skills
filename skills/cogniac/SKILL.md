@@ -187,40 +187,6 @@ cogstats -t "$COG_TENANT" [-g <gateway_id>] [-s <start_ts>] [-e <end_ts>]
 
 Reports pixel counts processed and detections emitted in the time window. Default window is the last five minutes. Note: `cogstats` requires the tenant as a `-t` flag — it does not read `COG_TENANT` from the environment automatically.
 
-## Calling the public API directly (non-Python callers)
-
-For non-Python agents and CI/curl-style use, hit the Cogniac public API directly:
-
-```bash
-BASE="https://api.cogniac.io"
-TOKEN="..."                     # bearer token from GET /1/token
-
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/tenants/$COG_TENANT"
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/applications"
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/subjects"
-```
-
-Auth flow:
-
-1. Call `GET /1/token` on `token-core-api` with HTTP Basic, API-key, or Bearer credentials to obtain a JWT. Pass `tenant_id` as a query parameter to scope the token to a specific tenant.
-2. Pass the JWT as `Authorization: Bearer <token>` on subsequent requests.
-
-The full REST surface — every endpoint, request/response schema, error table, and the auth roles required — is documented in `references/api/`. Start with `references/api/README.md` for the service catalog, core concepts (Tenant / Subject / Application / Media / Deployment Workflow), the role taxonomy, and the API versioning conventions. Open `references/api/<service>.md` for the endpoint detail of any given service.
-
-Auth lines in those docs follow a single greppable format:
-
-```
-**Auth:** Bearer JWT; required roles: `{role_a, role_b}`
-```
-
-So the following returns every doc containing endpoints that admit `tenant_admin`:
-
-```bash
-grep -lE 'roles: `\{.*tenant_admin' references/api/
-```
-
-Use this to find the right endpoint when you know the role you hold but not the path.
-
 ## Common pitfalls
 
 - **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
