@@ -40,7 +40,6 @@ pip install cogniac
 Required environment variables:
 - `COG_API_KEY` (preferred) OR `COG_USER` + `COG_PASS`
 - `COG_TENANT` — required for all commands except `cogniac tenants` and `cogniac auth`
-- `COG_URL_PREFIX` — optional, defaults to `https://api.cogniac.io/`
 
 ### First steps for any task
 
