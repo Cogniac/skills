@@ -1,0 +1,22 @@
+{
+  "name": "cogniac-agent-skills",
+  "owner": {
+    "name": "Cogniac",
+    "email": "support@cogniac.co"
+  },
+  "metadata": {
+    "description": "Cogniac agent skills for the Cogniac computer vision platform",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "cogniac-skills",
+      "description": "Skills for interacting with the Cogniac platform via the cogniac CLI and Python SDK",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/cogniac"
+      ]
+    }
+  ]
+}
