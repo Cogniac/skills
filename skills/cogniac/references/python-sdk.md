@@ -36,6 +36,54 @@ cc = CogniacConnection(api_key="key", tenant_id="abc123")
 - `cc.get_version(auth=False)` — returns dict with API version info
 - `CogniacConnection.get_all_authorized_tenants(username, password, url_prefix)` — classmethod, returns tenant list
 
+## Calling arbitrary API endpoints
+
+When you need an endpoint the SDK doesn't wrap (anything documented in `references/api/` but not listed above), use the connection's low-level HTTP methods. They are named with a leading underscore by Python convention, but the SDK uses them internally as the canonical way to hit any endpoint — they handle auth, re-auth on credential expiry, the `/1/` version prefix, the `url_prefix`, and retries:
+
+```python
+cc._get(path, params=None, timeout=None, **kwargs)      # returns httpx.Response
+cc._post(path, json=..., data=..., files=..., **kwargs)
+cc._delete(path, json=..., **kwargs)
+cc._head(path, **kwargs)
+```
+
+- `path` may be a bare path like `"/applications/<id>/feedback"` — the connection prepends `/1` if no `/<version>` prefix is present, then prepends `cc.url_prefix`. Pass an explicit version (`"/22/applications/..."`) when the endpoint lives under a non-`/1` API version. Pass a full `http(s)://...` URL to bypass prefixing entirely.
+- The response is a raw `httpx.Response`. Call `.json()` for JSON bodies, `.content`/`.iter_bytes()` for binary.
+- `4xx`/`5xx` are converted to `ClientError`/`ServerError` before returning (import: `from cogniac import ClientError, ServerError, CredentialError`); `401` becomes `CredentialError` and triggers one transparent re-auth + retry.
+
+### Example: an endpoint the SDK doesn't expose
+
+```python
+from cogniac import CogniacConnection
+cc = CogniacConnection()
+
+# GET /1/tenants/<tenant_id>/audit_log?limit=50
+resp = cc._get(f"/tenants/{cc.tenant_id}/audit_log", params={"limit": 50})
+for entry in resp.json()["data"]:
+    print(entry["timestamp"], entry["action"])
+
+# POST /1/applications/<id>/some_custom_action
+resp = cc._post(f"/applications/{app_id}/some_custom_action",
+                json={"param": "value"})
+result = resp.json()
+
+# Hit a non-/1 versioned endpoint
+resp = cc._get(f"/22/applications/{app_id}/evaluation_metrics")
+```
+
+### Finding the right path
+
+`references/api/<service>.md` lists every endpoint with its HTTP verb, path, request/response schema, and required roles. Translate directly:
+
+| API doc says                              | SDK call                                                |
+|-------------------------------------------|---------------------------------------------------------|
+| `GET /1/applications/{id}/feedback`       | `cc._get(f"/applications/{id}/feedback")`               |
+| `POST /1/subjects` with JSON body         | `cc._post("/subjects", json={...})`                     |
+| `DELETE /1/media/{id}`                    | `cc._delete(f"/media/{id}")`                            |
+| `GET /22/applications/{id}/...`           | `cc._get(f"/22/applications/{id}/...")` (explicit ver)  |
+
+Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) when one exists — it returns typed objects rather than raw JSON. Drop down to `_get`/`_post` only for endpoints the SDK doesn't cover.
+
 ## CogniacApplication
 
 ### Key Fields
@@ -123,4 +171,4 @@ cc = CogniacConnection(api_key="key", tenant_id="abc123")
 | `COG_USER` | Username (email) | — |
 | `COG_PASS` | Password | — |
 | `COG_TENANT` | Tenant ID | — |
-| `COG_URL_PREFIX` | API endpoint | `https://api.cogniac.io/` |
+| `COG_URL_PREFIX` | API endpoint | `https://api.cogniac.io` |
