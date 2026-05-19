@@ -57,18 +57,22 @@ cc._head(path, **kwargs)
 from cogniac import CogniacConnection
 cc = CogniacConnection()
 
-# GET /1/tenants/<tenant_id>/audit_log?limit=50
-resp = cc._get(f"/tenants/{cc.tenant_id}/audit_log", params={"limit": 50})
-for entry in resp.json()["data"]:
-    print(entry["timestamp"], entry["action"])
-
-# POST /1/applications/<id>/some_custom_action
-resp = cc._post(f"/applications/{app_id}/some_custom_action",
-                json={"param": "value"})
-result = resp.json()
-
-# Hit a non-/1 versioned endpoint
+# GET — a non-/1 versioned endpoint the SDK doesn't wrap.
+# From references/api/evaluation-metrics-api.md:
+#   GET /22/applications/{application_id}/evaluation_metrics
 resp = cc._get(f"/22/applications/{app_id}/evaluation_metrics")
+for m in resp.json():
+    primary = "primary" if m["primary"] else ""
+    print(m["evaluation_metric_hash"], primary, m["evaluation_metric"]["name"])
+
+# POST — attach a short message to a media item.
+# From references/api/message-core-api.md:
+#   POST /1/messages
+resp = cc._post("/messages", json={
+    "media_id": media_id,
+    "message": "flagged for re-review",
+})
+message_id = resp.json()["message_id"]
 ```
 
 ### Finding the right path
