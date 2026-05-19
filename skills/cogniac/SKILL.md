@@ -9,10 +9,9 @@ description: Query and manage the Cogniac computer vision platform via the `cogn
 
 Interact with the Cogniac enterprise AI computer vision platform.
 
-**Pick the right interface, in order of preference:**
+**Pick the right interface:**
 1. **`cogniac` CLI** — JSON output, designed for agent consumption. Use for any task it covers.
-2. **`cogniac` Python SDK** — fall back here for operations the CLI doesn't expose (app detections, feedback, model management, usage stats).
-3. **Raw HTTP to `api.cogniac.io`** — only for non-Python agents or when neither of the above fits.
+2. **`cogniac` Python SDK** — for anything the CLI doesn't expose. See `references/python-sdk.md`.
 
 ## Key Concepts
 
@@ -68,6 +67,8 @@ cogniac tenant                                  # current tenant info
 ```bash
 cogniac apps list                               # list all apps in tenant
 cogniac apps get <application_id>               # get app details
+cogniac apps eval-metrics <application_id>      # list active evaluation-metric configs (point_count_F1, etc.) with detection thresholds, subject weights, primary/active flags
+cogniac apps leaderboard <application_id>       # ranked candidate-model snapshot. Flags: --set-assignment {validation,training}, --snapshot-type {regular,int8}, --eval-metrics {primary,all}, --top N, --full
 ```
 
 ### Subjects
@@ -162,39 +163,7 @@ cogniac deployments list | jq -r '[.[].target_workflow_id // empty] | unique | .
 
 ## Python SDK
 
-For operations not covered by the CLI (app detections, model management, feedback, usage stats), use the Python SDK directly. Refer to `references/python-sdk.md` for the full API reference.
-
-For endpoints the SDK doesn't wrap (anything in `references/api/` without a typed method), call them through the connection's low-level HTTP methods — `cc._get(path)`, `cc._post(path, json=...)`, `cc._delete(path)`, `cc._head(path)`. These handle auth, re-auth, the `/1/` version prefix, and `url_prefix` automatically, and are how the SDK itself hits the API. See `references/python-sdk.md` § "Calling arbitrary API endpoints".
-
-Common patterns:
-
-```python
-from cogniac import CogniacConnection
-cc = CogniacConnection()  # reads env vars
-
-# Download media (SDK — requires open file object, not a path string)
-# Prefer the CLI: cogniac media download <media_id> -o out.jpg
-m = cc.get_media("media_id")
-with open("/tmp/image.jpg", "wb") as f:
-    m.download(f)
-
-# App detections
-app = cc.get_application("app_id")
-for d in app.detections(limit=10):
-    print(d['media_id'], d['probability'], d['consensus'])
-
-# App feedback
-count = app.pending_feedback()
-feedback = app.get_feedback(limit=10)
-
-# EdgeFlow aggregated stats
-ef = cc.get_edgeflow("gateway_id")
-stats = ef.get_aggregated_stats()
-
-# Tenant usage
-for record in cc.tenant.usage(start=1700000000, end=1700100000):
-    print(record)
-```
+For anything the CLI doesn't cover, use the Python SDK. The full reference is in `references/python-sdk.md`.
 
 ## Other CLIs shipped with the `cogniac` package
 
@@ -217,40 +186,6 @@ cogstats -t "$COG_TENANT" [-g <gateway_id>] [-s <start_ts>] [-e <end_ts>]
 ```
 
 Reports pixel counts processed and detections emitted in the time window. Default window is the last five minutes. Note: `cogstats` requires the tenant as a `-t` flag — it does not read `COG_TENANT` from the environment automatically.
-
-## Calling the public API directly
-
-When the SDK isn't a fit (e.g. non-Python agents, raw HTTP calls), call the Cogniac public API directly:
-
-```bash
-BASE="https://api.cogniac.io"
-TOKEN="..."                     # bearer token from GET /1/token
-
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/tenants/$COG_TENANT"
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/applications"
-curl -H "Authorization: Bearer $TOKEN" "$BASE/1/subjects"
-```
-
-Auth flow:
-
-1. Call `GET /1/token` on `token-core-api` with HTTP Basic, API-key, or Bearer credentials to obtain a JWT. Pass `tenant_id` as a query parameter to scope the token to a specific tenant.
-2. Pass the JWT as `Authorization: Bearer <token>` on subsequent requests.
-
-The full REST surface — every endpoint, request/response schema, error table, and the auth roles required — is documented in `references/api/`. Start with `references/api/README.md` for the service catalog, core concepts (Tenant / Subject / Application / Media / Deployment Workflow), the role taxonomy, and the API versioning conventions. Open `references/api/<service>.md` for the endpoint detail of any given service.
-
-Auth lines in those docs follow a single greppable format:
-
-```
-**Auth:** Bearer JWT; required roles: `{role_a, role_b}`
-```
-
-So the following returns every doc containing endpoints that admit `tenant_admin`:
-
-```bash
-grep -lE 'roles: `\{.*tenant_admin' references/api/
-```
-
-Use this to find the right endpoint when you know the role you hold but not the path.
 
 ## Common pitfalls
 
