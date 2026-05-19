@@ -164,6 +164,8 @@ cogniac deployments list | jq -r '[.[].target_workflow_id // empty] | unique | .
 
 For operations not covered by the CLI (app detections, model management, feedback, usage stats), use the Python SDK directly. Refer to `references/python-sdk.md` for the full API reference.
 
+For endpoints the SDK doesn't wrap (anything in `references/api/` without a typed method), call them through the connection's low-level HTTP methods — `cc._get(path)`, `cc._post(path, json=...)`, `cc._delete(path)`, `cc._head(path)`. These handle auth, re-auth, the `/1/` version prefix, and `url_prefix` automatically, and are how the SDK itself hits the API. See `references/python-sdk.md` § "Calling arbitrary API endpoints".
+
 Common patterns:
 
 ```python
@@ -252,10 +254,10 @@ Use this to find the right endpoint when you know the role you hold but not the 
 
 ## Common pitfalls
 
-- **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a multi-tenant user causes unexpected behavior. Always set it explicitly.
+- **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
 - **Mixing username/password and API key**: pick one. API keys are preferred for agents and CI.
 - **Rate limits**: the public API enforces rate limits. Handle `429` responses with backoff; the SDK does not retry rate-limited calls automatically.
-- **Region / URL prefix**: the default `https://api.cogniac.io/` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment.
+- **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
 - **Uploads are large**: prefer `cogupload` for bulk ingestion over a custom loop; it handles parallelism and retries.
 
