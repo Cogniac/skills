@@ -1,0 +1,9 @@
+# Code owners for Cogniac/skills.
+#
+# Any PR that touches files matching a pattern below requires an approving
+# review from one of the listed owners before it can be merged.
+#
+# Multiple owners on one line are OR'd: a single approval from any one of
+# them satisfies the requirement.
+
+* @spatel-cog @wskish
