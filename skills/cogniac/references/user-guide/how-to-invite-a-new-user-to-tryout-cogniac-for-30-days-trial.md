@@ -46,7 +46,7 @@ You should be an existing Cogniac User
 
 ## 10. New Users can also check the used and available compute resources under their plan and what their tenant consumes. They can find this information under the ‘Subscription Dashboard’ screen by selecting the Starter Plan from the homepage.
 
-- The ‘Subscription Dashboard’ shows the ‘Starter Plan’ remaining free days, User Feedback per billing cycle, and #Number of model-based Active Apps & media Storage currently being Consumed. Please contact a Cogniac Sales representative or email sales@cogniac.co for your Plan Information Details.
+- The ‘Subscription Dashboard’ shows the ‘Starter Plan’ remaining free days, User Feedback per billing cycle, and #Number of model-based Active Apps & media Storage currently being Consumed. Please contact a Cogniac Sales representative or email sales@cogniac.ai for your Plan Information Details.
 
 ![](../../../assets/media/images/how-to-invite-a-new-user-to-tryout-cogniac-for-30-days-trial-image-cpa8z1jf.png)
 

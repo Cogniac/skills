@@ -2,7 +2,7 @@
   "name": "cogniac-agent-skills",
   "owner": {
     "name": "Cogniac",
-    "email": "support@cogniac.co"
+    "email": "support@cogniac.ai"
   },
   "metadata": {
     "description": "Cogniac agent skills for the Cogniac computer vision platform",
