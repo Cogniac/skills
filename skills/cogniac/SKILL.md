@@ -1,6 +1,6 @@
 ---
 name: cogniac
-description: Query and manage the Cogniac computer vision platform via the `cogniac` CLI and Python SDK. Use this skill when the user asks about Cogniac tenants, applications, subjects, media, EdgeFlows, cameras, or wants to upload media, create subjects, or check system status. Triggers on references to Cogniac, `cogniac` CLI commands, or `cogniac` SDK imports.
+description: Query and manage the Cogniac computer vision platform. Use when working with Cogniac tenants, applications, subjects, media, EdgeFlow/CloudFlow appliances, cameras, deployments, or workflows — including uploading media, checking fleet status, reading aggregate stats, or monitoring EdgeFlow/CloudFlow clusters. Triggers on references to Cogniac, CloudCore, EdgeFlow, CloudFlow, visual apps, or cogniac cli/sdk.
 ---
 
 # Cogniac SDK & CLI
