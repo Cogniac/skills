@@ -38,6 +38,33 @@ namespace.** Always pass `-n default`.
 - Anything mutating: `apply`, `create`, `delete`, `patch`, `edit`, `scale`,
   `rollout`, `cordon`, `drain`, `label`, `annotate`
 
+## Pod naming
+
+Once you can `kubectl get pods`, the names tell you what's running:
+
+- `app-<application_id>-N` — StatefulSet replica `N` for application
+  `<application_id>` (the 8-char Cogniac app ID). One StatefulSet per app in
+  the deployed workflow, typically 8 replicas.
+- `http-input-<application_id>-...` — Deployment pods for an `http_input` app.
+- Everything else (`rabbitmq`, `localapi`, `uploader`, `media-storage`,
+  `post-url`, `nginx-ingress-controller`, `dcgm-exporter`,
+  `k8s-host-device-plugin-daemonset`, `gigev-autodiscovery`) is EdgeFlow
+  infrastructure, the same on every device.
+
+To resolve a pod back to a human-readable app name:
+
+```bash
+cogniac apps get <application_id> | jq '{application_id, name, type}'
+```
+
+The deployed workflow itself is on the EdgeFlow record:
+
+```bash
+cogniac edgeflows get <gateway_id> | jq '.deployment_group_id'
+cogniac deployments list | jq '.[] | select(.deployment_group_id=="<id>") | .target_workflow_id'
+cogniac workflows get <workflow_id> | jq '.app_specs[].application_id'
+```
+
 ## Prerequisites
 
 ```bash
@@ -100,6 +127,6 @@ That's the whole thing. The resulting kubeconfig points at
 [ ] cogniac auth succeeds
 [ ] Have a tenant_id and a gateway_id (tenant must own the gateway)
 [ ] Run the 8-line recipe; capture the kubeconfig path in $KCFG
-[ ] kubectl --kubeconfig=$KCFG -n default get pods   # smoke test
+[ ] kubectl --kubeconfig=$KCFG -n default get pods   # smoke test; app-<id>-N pods map to Cogniac application_ids
 [ ] Proceed with read-only investigation, always passing -n default
 ```
