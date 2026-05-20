@@ -2,7 +2,7 @@
 
 ## Sync vs async
 
-This reference covers the synchronous API, which is what most agent code should use. An async/await mirror of the same surface exists (`AsyncCogniacConnection`, `AsyncCogniacSubject`, etc.) for concurrent workloads — see the SDK README at https://github.com/Cogniac/cogniac-sdk-py for the async usage patterns (factory `await AsyncCogniacConnection.create()`, `await obj.set(...)` setters, `async for` paginated generators).
+This reference covers the sync API. An async mirror (`AsyncCogniacConnection`, `AsyncCogniacSubject`, …) exists for concurrent workloads — see https://github.com/Cogniac/cogniac-sdk-py.
 
 ## CogniacConnection
 
