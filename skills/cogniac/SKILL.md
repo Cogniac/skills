@@ -109,6 +109,8 @@ cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU s
 
 `--subsystem` is an exact-match filter. Built-in subsystems include `gpus`, `upload`, and per-deployed-model detection counters named `model_detections_<model_instance_id>` (one per model). To see what a device is currently reporting, run `cogniac edgeflows status <gateway_id>` with no filter and inspect the `subsystem` field, then query a specific one — e.g. `--subsystem model_detections_hawmlqhs --limit 5`.
 
+For deeper debugging beyond `cogniac edgeflows status` — pod logs, events, deployment state on the cluster itself — fetch a read-only kubeconfig via the SDK + Rancher and drive `kubectl` directly. Works for both EdgeFlow and CloudFlow clusters. See `references/edgeflow-kubectl-access.md`.
+
 ### Cameras
 
 ```bash
@@ -200,7 +202,8 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 
 - REST API reference: `references/api/README.md` — service catalog, core concepts, and per-service endpoint documentation.
 - Python SDK reference: `references/python-sdk.md`.
-- User guide: `references/user-guide/INDEX.md` — tutorial- and concept-oriented docs (app types, deployments, best practices, FAQ). 
+- User guide: `references/user-guide/INDEX.md` — tutorial- and concept-oriented docs (app types, deployments, best practices, FAQ).
+- Read-only kubectl access to EdgeFlow/CloudFlow clusters: `references/edgeflow-kubectl-access.md`.
 - Python SDK source: https://github.com/Cogniac/cogniac-sdk-py
 - PyPI package: https://pypi.org/project/cogniac/
 
