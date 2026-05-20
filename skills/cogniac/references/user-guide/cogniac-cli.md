@@ -13,7 +13,7 @@ The CLI authenticates using environment variables:
 | ****COG\_USER**** **string** | The Cogniac account username (usually an email address). |
 | ****COG\_PASS**** **string** | The associated Cogniac account password. |
 | ****COG\_API\_KEY**** **string** | **(optional)** A Cogniac-issued API key (alternative to username/password). |
-| ****COG\_TENANT**** **string** | **(optional)** Tenant ID with which to assume credentials. Only required if the user is a member of multiple tenants. |
+| ****COG\_TENANT**** **string** | **(optional)** Tenant ID with which to assume credentials. Only required if the user is a member of multiple tenants. Can be overridden per-invocation with the `--tenant` flag (see Global Options). |
 | ****COG\_URL\_PREFIX**** **string** | **(optional)** Cogniac API endpoint URL. Defaults to `https://api.cogniac.io/`. |
 
 ```bash
@@ -30,6 +30,7 @@ cogniac auth
 | --- | --- |
 | ****--format json**** | Output as JSON (default). Ideal for scripting and automation. |
 | ****--format table**** | Output as a formatted table for human-readable display. |
+| ****--tenant** *tenant\_id*** | Tenant ID for this invocation. Overrides `COG_TENANT`. Useful when switching tenants in one session without re-exporting env vars. |
 
 ```bash
 cogniac apps list --format table

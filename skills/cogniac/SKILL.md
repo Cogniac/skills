@@ -38,7 +38,9 @@ pip install cogniac
 
 Required environment variables:
 - `COG_API_KEY` (preferred) OR `COG_USER` + `COG_PASS`
-- `COG_TENANT` — required for all commands except `cogniac tenants` and `cogniac auth`
+- `COG_TENANT` — required for all commands except `cogniac tenants` and `cogniac auth`, unless overridden per-invocation with the global `--tenant` flag (see below).
+
+Tenant selection: every `cogniac` subcommand also accepts a top-level `--tenant <tenant_id>` flag that overrides `COG_TENANT` for that single invocation. Useful when switching between tenants in one session without re-exporting env vars: `cogniac --tenant <tenant_id> apps list`.
 
 ### First steps for any task
 
@@ -47,7 +49,7 @@ Required environment variables:
    ```bash
    cogniac tenants | jq '.tenants[] | select(.name | test("keyword"; "i")) | {tenant_id, name}'
    ```
-   Then `export COG_TENANT=<tenant_id>` for the rest of the session.
+   Then either `export COG_TENANT=<tenant_id>` for the rest of the session, or pass `--tenant <tenant_id>` on each invocation.
 3. **Run the task** using the command reference below.
 
 ## CLI Command Reference
@@ -191,7 +193,7 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 
 ## Common pitfalls
 
-- **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
+- **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly — via `COG_TENANT`, the CLI's `--tenant` flag, or `tenant_id=` to the SDK. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
 - **Mixing username/password and API key**: pick one. API keys are preferred for agents and CI.
 - **Rate limits**: the public API enforces rate limits. Handle `429` responses with backoff; the SDK does not retry rate-limited calls automatically.
 - **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
