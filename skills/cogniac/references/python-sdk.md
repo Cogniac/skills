@@ -1,5 +1,9 @@
 # Cogniac Python SDK Reference
 
+## Sync vs async
+
+This reference covers the synchronous API, which is what most agent code should use. An async/await mirror of the same surface exists (`AsyncCogniacConnection`, `AsyncCogniacSubject`, etc.) for concurrent workloads — see the SDK README at https://github.com/Cogniac/cogniac-sdk-py for the async usage patterns (factory `await AsyncCogniacConnection.create()`, `await obj.set(...)` setters, `async for` paginated generators).
+
 ## CogniacConnection
 
 Entry point for all API interaction. Reads auth from env vars or constructor args.
@@ -19,6 +23,7 @@ cc = CogniacConnection(api_key="key", tenant_id="abc123")
 - `cc.url_prefix` — API endpoint URL
 
 ### Methods
+- `cc.get_tenant()` — returns CogniacTenant for the current tenant
 - `cc.get_all_applications()` — returns list of CogniacApplication
 - `cc.get_application(application_id)` — returns CogniacApplication
 - `cc.create_application(name, application_type, ...)` — returns CogniacApplication
@@ -95,7 +100,7 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 `application_id`, `name`, `type`, `description`, `active`, `input_subjects`, `output_subjects`, `app_managers`, `app_type_config`, `created_at`, `created_by`
 
 ### Methods
-- `app.detections(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, limit=None, consensus_none=False)` — yields detection dicts
+- `app.detections(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, limit=None, consensus_none=False, only_user=False, only_model=False, abridged_media=True)` — yields detection dicts. `only_user=True` restricts to user-supplied feedback assertions; `only_model=True` restricts to model predictions. `abridged_media` defaults to True (server returns just `media_id` per row, faster); pass `abridged_media=False` to embed the full media dict in each row and skip a follow-up `get_media()`.
 - `app.models(start=None, end=None, limit=None, reverse=True)` — yields released model dicts
 - `app.model_name()` — returns name of current best model
 - `app.download_model(model_id=None)` — downloads model file
@@ -115,7 +120,7 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 `subject_uid`, `name`, `description`, `external_id`, `public_read`, `public_write`, `created_at`, `created_by`
 
 ### Methods
-- `subject.media_associations(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, consensus=None, sort_probability=False, limit=None)` — yields association dicts
+- `subject.media_associations(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, consensus=None, sort_probability=False, limit=None, abridged_media=True)` — yields association dicts. `abridged_media` defaults to True (server returns just `media_id` per row, faster); pass `abridged_media=False` to embed the full media dict.
 - `subject.associate_media(media, focus=None, consensus='None', probability=None, force_feedback=False)` — associate media with subject
 - `subject.disassociate_media(media, focus=None)` — remove association
 - `subject.create_reference_media(filename, ...)` — upload reference media
