@@ -114,6 +114,8 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 - `app.add_input_subject(subject)` / `app.add_output_subject(subject)` — wire a subject into the app's pipeline
 - `app.delete()` — delete the application
 
+**Attribute assignment may auto-POST.** Sync SDK classes (`CogniacApplication`, `CogniacSubject`, `CogniacMedia`, ...) override `__setattr__` so assigning to a server-managed mutable field sends the update — no `.save()` / `.update()`. The mutable field set is enforced per-class in `__setattr__`; assignment to other names just sets locally. Async classes (`Async*`) instead require `await obj.set(field=value, ...)`.
+
 ## CogniacSubject
 
 ### Key Fields
