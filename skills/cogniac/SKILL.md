@@ -30,10 +30,10 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package. If the command is not found, install or upgrade it:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.0.5**. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
-pip install cogniac
+pip install 'cogniac>=3.0.5'
 ```
 
 Required environment variables:
