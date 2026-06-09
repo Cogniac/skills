@@ -38,15 +38,16 @@ pip install 'cogniac>=3.1.0'
 
 ### Authentication
 
-The preferred way to authenticate is the browser login flow:
+In the common case credentials are already in place, so `cogniac auth` is all you need — it validates the stored credential and confirms you're ready to go. Only if that fails do you need to log in:
 
 ```bash
-cogniac auth login        # opens the browser, authenticates via your existing
-                          # Cogniac web session (password or SAML SSO), and stores
-                          # a per-user API key for subsequent use
+cogniac auth              # validate credentials (the usual first step)
+cogniac auth login        # only if `cogniac auth` fails: opens the browser, authenticates
+                          # via your existing Cogniac web session (password or SAML SSO),
+                          # and stores a per-user API key for subsequent use
 ```
 
-After one browser round-trip the CLI and SDK are authenticated with no manual key handling — the stored credential is picked up automatically on every subsequent run.
+After one browser round-trip the credential is stored and picked up automatically by the CLI and SDK on every subsequent run — no manual key handling.
 
 Tenant selection: most commands also need a tenant. Set `COG_TENANT`, or pass the top-level `--tenant <tenant_id>` flag, which overrides `COG_TENANT` for a single invocation (handy when switching tenants without re-exporting env vars): `cogniac --tenant <tenant_id> apps list`. `cogniac tenants` and `cogniac auth` are the exceptions — they don't need a tenant.
 
