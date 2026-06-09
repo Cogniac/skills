@@ -44,7 +44,6 @@ The preferred way to authenticate is the browser login flow:
 cogniac auth login        # opens the browser, authenticates via your existing
                           # Cogniac web session (password or SAML SSO), and stores
                           # a per-user API key at ~/.config/cogniac/credentials (0600)
-cogniac auth logout       # remove the stored credential
 ```
 
 After one browser round-trip the CLI and SDK are authenticated with no manual key handling — the stored credential is picked up automatically on every subsequent run.
@@ -71,7 +70,6 @@ All commands output JSON. Pipe into `jq` to filter, project, or aggregate.
 
 ```bash
 cogniac auth login                              # browser login (preferred); stores a per-user API key
-cogniac auth logout                             # remove the stored credential
 cogniac auth                                    # validate credentials, show tenant count
 cogniac tenants                                 # list all authorized tenants (no COG_TENANT needed)
 cogniac tenant                                  # current tenant info
