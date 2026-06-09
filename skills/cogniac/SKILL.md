@@ -41,7 +41,7 @@ pip install 'cogniac>=3.1.0'
 In the common case credentials are already in place, so `cogniac auth` is all you need — it validates the stored credential and confirms you're ready to go. Only if that fails do you need to log in:
 
 ```bash
-cogniac auth              # validate credentials (the usual first step)
+cogniac auth              # validate credentials
 cogniac auth login        # only if `cogniac auth` fails: opens the browser, authenticates
                           # via your existing Cogniac web session (password or SAML SSO),
                           # and stores a per-user API key for subsequent use
