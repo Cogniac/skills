@@ -43,7 +43,7 @@ The preferred way to authenticate is the browser login flow:
 ```bash
 cogniac auth login        # opens the browser, authenticates via your existing
                           # Cogniac web session (password or SAML SSO), and stores
-                          # a per-user API key at ~/.config/cogniac/credentials (0600)
+                          # a per-user API key for subsequent use
 ```
 
 After one browser round-trip the CLI and SDK are authenticated with no manual key handling — the stored credential is picked up automatically on every subsequent run.

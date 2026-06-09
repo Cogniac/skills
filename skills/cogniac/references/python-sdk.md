@@ -15,7 +15,7 @@ cc = CogniacConnection(tenant_id="abc123")        # uses the stored login from `
 cc = CogniacConnection(api_key="key", tenant_id="abc123")
 ```
 
-With no constructor args, the connection resolves credentials in this order (highest-to-lowest, first match wins): explicit args → `COG_API_KEY` → the stored login written by `cogniac auth login` (at `~/.config/cogniac/credentials`). Running `cogniac auth login` once is the preferred setup.
+With no constructor args, the connection resolves credentials in this order (highest-to-lowest, first match wins): explicit args → `COG_API_KEY` → the stored login written by `cogniac auth login`. Running `cogniac auth login` once is the preferred setup.
 
 ### Properties
 - `cc.tenant` — CogniacTenant object
