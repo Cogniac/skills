@@ -15,7 +15,7 @@ cc = CogniacConnection(tenant_id="abc123")        # uses the stored login from `
 cc = CogniacConnection(api_key="key", tenant_id="abc123")
 ```
 
-With no constructor args, the connection resolves credentials in this order (highest-to-lowest, first match wins): explicit args → `COG_API_KEY` → the stored login written by `cogniac auth login` (at `~/.config/cogniac/credentials`). Running `cogniac auth login` once is the preferred setup — see the skill's main SKILL.md. `COG_TENANT` and `COG_URL_PREFIX` are read from the environment when not passed explicitly. (Requires `cogniac >= 3.1.0`.)
+With no constructor args, the connection resolves credentials in this order (highest-to-lowest, first match wins): explicit args → `COG_API_KEY` → the stored login written by `cogniac auth login` (at `~/.config/cogniac/credentials`). Running `cogniac auth login` once is the preferred setup.
 
 ### Properties
 - `cc.tenant` — CogniacTenant object
@@ -230,8 +230,6 @@ Records produced by external (non-Cogniac) systems that are attached to media or
 ## Environment Variables
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `COG_API_KEY` | API key auth (fallback; prefer `cogniac auth login`) | — |
+| `COG_API_KEY` | API key auth | — |
 | `COG_TENANT` | Tenant ID | — |
 | `COG_URL_PREFIX` | API endpoint | `https://api.cogniac.io` |
-
-> Authentication is best set up once with `cogniac auth login`, which stores a per-user API key on disk. The SDK picks it up automatically. `COG_API_KEY` remains available as an environment-variable fallback for CI / headless use.
