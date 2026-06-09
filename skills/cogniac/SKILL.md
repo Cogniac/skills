@@ -47,9 +47,7 @@ cogniac auth login        # opens the browser, authenticates via your existing
 cogniac auth logout       # remove the stored credential
 ```
 
-After one browser round-trip the CLI and SDK are authenticated with no manual key handling — the stored credential is picked up automatically on every subsequent run. Use `cogniac auth login --no-browser` on a machine with no local browser (it prints the URL for you to open elsewhere and prompts for the port).
-
-As a fallback (CI, headless agents, or pre-provisioned environments), you can instead export a `COG_API_KEY` environment variable; the SDK consumes it identically to a stored login.
+After one browser round-trip the CLI and SDK are authenticated with no manual key handling — the stored credential is picked up automatically on every subsequent run.
 
 Tenant selection: most commands also need a tenant. Set `COG_TENANT`, or pass the top-level `--tenant <tenant_id>` flag, which overrides `COG_TENANT` for a single invocation (handy when switching tenants without re-exporting env vars): `cogniac --tenant <tenant_id> apps list`. `cogniac tenants` and `cogniac auth` are the exceptions — they don't need a tenant.
 
@@ -73,7 +71,6 @@ All commands output JSON. Pipe into `jq` to filter, project, or aggregate.
 
 ```bash
 cogniac auth login                              # browser login (preferred); stores a per-user API key
-cogniac auth login --no-browser                 # login on a machine without a local browser
 cogniac auth logout                             # remove the stored credential
 cogniac auth                                    # validate credentials, show tenant count
 cogniac tenants                                 # list all authorized tenants (no COG_TENANT needed)
