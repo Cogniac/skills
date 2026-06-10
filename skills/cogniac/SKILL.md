@@ -199,9 +199,12 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 - **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
 - **Uploads are large**: prefer `cogupload` for bulk ingestion over a custom loop; it handles parallelism and retries.
+- **Subject media recency / per-media fields**: the SDK's `media_associations()` omits `domain_unit`, `sequence_ix`, and `app_data` details — page `GET /1/subjects/<uid>/media` directly for liveness checks and per-media data. See `references/api-gotchas.md` #1–2.
+- **`EdgeFlow.status()` is a live stream**, not a snapshot — `list()`-ing it hangs forever. See `references/api-gotchas.md` #3, and #4 for why cloud-side `active` toggles don't reach frozen on-appliance integration apps.
 
 ## References
 
+- Field-tested API gotchas: `references/api-gotchas.md` — subject-media paging, `app_data` as JSON string, EdgeFlow status stream, frozen integration-app workflows, deletion ordering.
 - REST API reference: `references/api/README.md` — service catalog, core concepts, and per-service endpoint documentation.
 - Python SDK reference: `references/python-sdk.md`.
 - User guide: `references/user-guide/INDEX.md` — tutorial- and concept-oriented docs (app types, deployments, best practices, FAQ).
