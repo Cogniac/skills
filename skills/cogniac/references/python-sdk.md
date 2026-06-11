@@ -6,15 +6,16 @@ This reference covers the sync API. An async mirror (`AsyncCogniacConnection`, `
 
 ## CogniacConnection
 
-Entry point for all API interaction. Reads auth from env vars or constructor args.
+Entry point for all API interaction. Reads auth from env vars, a stored login, or constructor args.
 
 ```python
 from cogniac import CogniacConnection
 
-cc = CogniacConnection()  # reads COG_API_KEY or COG_USER/COG_PASS, COG_TENANT, COG_URL_PREFIX
-cc = CogniacConnection(username="user@example.com", password="pass", tenant_id="abc123")
+cc = CogniacConnection(tenant_id="abc123")        # uses the stored login from `cogniac auth login`
 cc = CogniacConnection(api_key="key", tenant_id="abc123")
 ```
+
+With no constructor args, the connection resolves credentials in this order (highest-to-lowest, first match wins): explicit args → `COG_API_KEY` → the stored login written by `cogniac auth login`. Running `cogniac auth login` once is the preferred setup.
 
 ### Properties
 - `cc.tenant` — CogniacTenant object
@@ -230,7 +231,5 @@ Records produced by external (non-Cogniac) systems that are attached to media or
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `COG_API_KEY` | API key auth | — |
-| `COG_USER` | Username (email) | — |
-| `COG_PASS` | Password | — |
 | `COG_TENANT` | Tenant ID | — |
 | `COG_URL_PREFIX` | API endpoint | `https://api.cogniac.io` |

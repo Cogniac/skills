@@ -30,21 +30,32 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.0.5**. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.1.0**. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
-pip install 'cogniac>=3.0.5'
+pip install 'cogniac>=3.1.0'
 ```
 
-Required environment variables:
-- `COG_API_KEY` (preferred) OR `COG_USER` + `COG_PASS`
-- `COG_TENANT` — required for all commands except `cogniac tenants` and `cogniac auth`, unless overridden per-invocation with the global `--tenant` flag (see below).
+### Authentication
 
-Tenant selection: every `cogniac` subcommand also accepts a top-level `--tenant <tenant_id>` flag that overrides `COG_TENANT` for that single invocation. Useful when switching between tenants in one session without re-exporting env vars: `cogniac --tenant <tenant_id> apps list`.
+In the common case credentials are already in place, so `cogniac auth` is all you need — it validates the stored credential and confirms you're ready to go. Only if that fails do you need to log in:
+
+```bash
+cogniac auth              # validate credentials
+cogniac auth login        # only if `cogniac auth` fails: opens the browser, authenticates
+                          # via your existing Cogniac web session (password or SAML SSO),
+                          # and stores a per-user API key for subsequent use
+```
+
+After one browser round-trip the credential is stored and picked up automatically by the CLI and SDK on every subsequent run — no manual key handling.
+
+Tenant selection: most commands also need a tenant. Set `COG_TENANT`, or pass the top-level `--tenant <tenant_id>` flag, which overrides `COG_TENANT` for a single invocation (handy when switching tenants without re-exporting env vars): `cogniac --tenant <tenant_id> apps list`. `cogniac tenants` and `cogniac auth` are the exceptions — they don't need a tenant.
+
+> Credential precedence (highest-to-lowest — the CLI/SDK uses the first it finds): explicit args → `COG_API_KEY` → stored login from `cogniac auth login`. So an exported `COG_API_KEY` takes priority over a stored login if both are present.
 
 ### First steps for any task
 
-1. **Verify credentials:** `cogniac auth`. Fail fast and ask the user to set `COG_API_KEY` if this errors.
+1. **Verify credentials:** `cogniac auth`. If it errors, run `cogniac auth login` and try again.
 2. **Resolve the tenant** if `COG_TENANT` is not set or the user didn't name one. List with `cogniac tenants` and ask which to use; filter by keyword with jq:
    ```bash
    cogniac tenants | jq '.tenants[] | select(.name | test("keyword"; "i")) | {tenant_id, name}'
@@ -59,6 +70,7 @@ All commands output JSON. Pipe into `jq` to filter, project, or aggregate.
 ### Auth & Tenants
 
 ```bash
+cogniac auth login                              # browser login (preferred); stores a per-user API key
 cogniac auth                                    # validate credentials, show tenant count
 cogniac tenants                                 # list all authorized tenants (no COG_TENANT needed)
 cogniac tenant                                  # current tenant info
@@ -194,7 +206,7 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 ## Common pitfalls
 
 - **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly — via `COG_TENANT`, the CLI's `--tenant` flag, or `tenant_id=` to the SDK. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
-- **Mixing username/password and API key**: pick one. API keys are preferred for agents and CI.
+- **Authentication**: prefer `cogniac auth login` (stored credential). If you also export `COG_API_KEY`, note it takes precedence over the stored login.
 - **Rate limits**: the public API enforces rate limits. Handle `429` responses with backoff; the SDK does not retry rate-limited calls automatically.
 - **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
