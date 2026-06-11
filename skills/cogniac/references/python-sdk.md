@@ -160,7 +160,7 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 `gateway_id`, `name`, `model`, `description`
 
 ### Methods
-- `ef.status(subsystem_name=None, start=None, end=None, reverse=True, limit=None)` — yields status events
+- `ef.status(subsystem_name=None, start=None, end=None, reverse=True, limit=None)` — yields status events. This is a **paged generator over the appliance's status history**, not a live stream: pass `limit=` (or `end=`) to bound it — `list(ef.status(limit=10))` is fine. An unbounded `list(ef.status())` walks the entire history.
 - `ef.get_aggregated_stats(start=None, end=None)` — returns detection/pixel counts
 - `ef.process_media(subject_uid, filename, ...)` — upload media for edge processing
 - `ef.trigger_camera_capture(subject_uid, trigger_domain_unit=None)` — trigger camera

@@ -113,6 +113,10 @@ cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU s
 
 For deeper debugging beyond `cogniac edgeflows status` — pod logs, events, deployment state on the cluster itself — fetch a read-only kubeconfig via the SDK + Rancher and drive `kubectl` directly. Works for both EdgeFlow and CloudFlow clusters. See `references/edgeflow-kubectl-access.md`.
 
+**Integration apps run frozen on the appliance.** Apps of `type: integration` deploy via the `/1/builds` endpoint and run on EdgeFlow as part of a **frozen deployment-workflow snapshot**. Two consequences when one looks broken:
+- **A cloud-side `active` toggle generally does NOT reach the running on-appliance process** — it may be a no-op against the actual process while risking a deployment re-sync of the whole appliance. Restarting/redeploying is an appliance-side action owned by the EdgeFlow operators; hand off rather than toggle.
+- **The only reliable liveness signal is media recency on the app's output subjects vs. its input subjects** — `input_queue_count` is always 0 for EdgeFlow apps (processing is local, so the cloud queue number carries no liveness information). Live input + dead output = that app's process is dead; an identically-configured sibling producing on the same appliance proves the appliance itself is healthy.
+
 ### Cameras
 
 ```bash
@@ -199,12 +203,11 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 - **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
 - **Uploads are large**: prefer `cogupload` for bulk ingestion over a custom loop; it handles parallelism and retries.
-- **Subject media recency / per-media fields**: the SDK's `media_associations()` omits `domain_unit`, `sequence_ix`, and `app_data` details — page `GET /1/subjects/<uid>/media` directly for liveness checks and per-media data. See `references/api-gotchas.md` #1–2.
-- **`EdgeFlow.status()` is a live stream**, not a snapshot — `list()`-ing it hangs forever. See `references/api-gotchas.md` #3, and #4 for why cloud-side `active` toggles don't reach frozen on-appliance integration apps.
+- **Per-media fields default off**: `media_associations()` defaults to `abridged_media=True`, which omits `domain_unit`, `sequence_ix`, and full `app_data`. Pass `media_associations(abridged_media=False)` to get the full per-media dict (keeps SDK retry) — see the method's entry in `references/python-sdk.md`.
+- **Deletion ordering**: deactivate apps before deleting them (`app.active = False`, save, then `.delete()`), and delete subjects only after the apps referencing them are gone. The wrong order returns unhelpful 4xx errors.
 
 ## References
 
-- Field-tested API gotchas: `references/api-gotchas.md` — subject-media paging, `app_data` as JSON string, EdgeFlow status stream, frozen integration-app workflows, deletion ordering.
 - REST API reference: `references/api/README.md` — service catalog, core concepts, and per-service endpoint documentation.
 - Python SDK reference: `references/python-sdk.md`.
 - User guide: `references/user-guide/INDEX.md` — tutorial- and concept-oriented docs (app types, deployments, best practices, FAQ).
