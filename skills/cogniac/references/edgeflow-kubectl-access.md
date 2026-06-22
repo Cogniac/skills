@@ -44,7 +44,12 @@ Once you can `kubectl get pods`, the names tell you what's running:
 
 - `app-<application_id>-N` — StatefulSet replica `N` for application
   `<application_id>` (the 8-char Cogniac app ID). One StatefulSet per app in
-  the deployed workflow, typically 8 replicas.
+  the deployed workflow, typically 8 replicas. Each app pod has two containers:
+  `<application_id>-dsp` (dispatch/pre-processing) and
+  `<application_id>-runtime` (model inference) — pass
+  `-c <application_id>-runtime` to `kubectl logs`; its per-request lines
+  (`<N> bytes -> POST /1/media => output <M> bytes in <T> msecs`) carry the
+  model latency.
 - `http-input-<application_id>-...` — Deployment pods for an `http_input` app.
 - Everything else (`rabbitmq`, `localapi`, `uploader`, `media-storage`,
   `post-url`, `nginx-ingress-controller`, `dcgm-exporter`,
