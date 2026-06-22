@@ -118,12 +118,40 @@ cogniac media upload /path/to/image.jpg --subject-uid <subject_uid>  # upload an
 cogniac edgeflows list                          # list all EdgeFlow devices
 cogniac edgeflows get <gateway_id>              # get device details
 cogniac edgeflows status <gateway_id>           # recent status events (all subsystems)
-cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU sample
+cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1            # latest GPU sample
+cogniac edgeflows status <gateway_id> --list-subsystems                     # distinct subsystems a device reports
+cogniac edgeflows status <gateway_id> --subsystem http-input-<app_id> --start <ts> --end <ts>   # time-range slice
+cogniac edgeflows metrics names                                            # catalog of host/runtime metric names
+cogniac edgeflows metrics list --metric-name <name> [--edgeflow-id <gateway_id>] [--start <ts> --end <ts>]
 ```
 
-`--subsystem` is an exact-match filter. Built-in subsystems include `gpus`, `upload`, per-deployed-model detection counters named `model_detections_<model_instance_id>` (one per model), and `http-input-<application_id>` (one per deployed `http_input` app — see below). To see what a device is currently reporting, run `cogniac edgeflows status <gateway_id>` with no filter and inspect the `subsystem` field, then query a specific one — e.g. `--subsystem model_detections_hawmlqhs --limit 5`.
+`--subsystem` is an exact-match filter. Built-in subsystems include `gpus`, `upload`, per-deployed-model detection counters named `model_detections_<model_instance_id>` (one per model), and `http-input-<application_id>` (one per deployed `http_input` app — see below).
 
-The `http-input-<application_id>` subsystem carries ingest-side request counts. Its samples have a `status.counters` array of `{path, method, status, count}` entries, where `count` is *cumulative*; differencing the `status == "200"` / `method == "POST"` counts between two samples and dividing by elapsed time gives the ingest request rate (req/s) — the offered load on that input, distinct from model latency. Two things make this the right tool for throughput trends: EdgeFlow status is retained far longer than container logs (days), so you can see a multi-day trend the cluster's rolling logs can't; and the same payload also holds an `http_request_duration_seconds` histogram (whole-request HTTP time, not model inference). Caveat: when an `http_input` app runs more than one replica, the cumulative counter can jump or regress as the agent samples different pods.
+**To discover what a device reports, use `--list-subsystems`** (requires `cogniac >= 3.2.0`): it returns `{subsystem, count, last_seen}` for each distinct subsystem regardless of sample frequency, then query a specific one — e.g. `--subsystem model_detections_<model_instance_id> --limit 5`. Don't page through unfiltered `status` for discovery: on a busy device the default page is entirely high-frequency `model_detections_*`, so low-frequency subsystems (`http-input-*`, `gpus`, `cpu`, `memory`) never appear. `--list-subsystems` scans up to `--scan-limit` records (default 8000); if it hits the cap it writes a `{"scan_capped": true}` notice to **stderr** (stdout stays pure JSON) — raise `--scan-limit` to widen the window.
+
+Use `--start`/`--end` (epoch seconds or ISO 8601; requires `cogniac >= 3.2.0`) to slice a time window instead of paging `--limit`. They filter on the cloud-receipt clock (`cc_timestamp`), not device time — the two can diverge on a skewed or backfilling device.
+
+The `http-input-<application_id>` subsystem carries ingest-side request counts. Its samples have a `status.counters` array of `{path, method, status, count}` entries, where `count` is *cumulative*; differencing the `status == "200"` / `method == "POST"` counts between two samples and dividing by elapsed time gives the ingest request rate (req/s) — the offered load on that input, distinct from model latency. Two things make this the right tool for throughput trends: EdgeFlow status is retained far longer than container logs (days), so you can see a multi-day trend the cluster's rolling logs can't; and the same payload also holds an `http_request_duration_seconds` histogram (whole-request HTTP time, not model inference).
+
+**Computing ingest rate (req/s).** Pull a window with `--start/--end`, then difference the cumulative `POST`/`200` `/process` counts between the first and last sample and divide by elapsed time:
+```bash
+cogniac edgeflows status <gateway_id> --subsystem http-input-<app_id> --start <ts> --end <ts> \
+  | jq '[.[] | {t: .gw_timestamp,
+                c: (.status.counters[] | select(.method=="POST" and .status=="200" and (.path|test("/process"))) | .count)}]
+        | (max_by(.c).c - min_by(.c).c) / ((max_by(.t).t) - (min_by(.t).t))'
+```
+**Multi-replica correctness.** When an `http_input` app runs more than one replica, the cumulative counter jumps or regresses as the agent samples different pods. **Track the per-endpoint cumulative max (upper envelope); never sum positive consecutive deltas** — naive delta-summing overcounts by ~20×. The first→last `max − min` above is envelope-safe.
+
+**Timestamp schema.** Each status record carries up to three clocks: `gw_timestamp` (gateway sample clock, always present — the correct denominator for rate math), `cc_timestamp` (cloud-receipt clock, always present — what `--start/--end` filter on), and `timestamp` (guaranteed present in `cogniac >= 3.2.0`, aliased to `gw_timestamp` when the backend omits it). Sort/diff on `gw_timestamp`; on older builds ~15% of records lack `timestamp`, so `sort(key=lambda s: s["timestamp"])` `KeyError`s partway through a window.
+
+**Counter conventions differ by subsystem** — mixing them silently corrupts results:
+
+| Subsystem | Counter convention |
+|---|---|
+| `http-input-<app_id>` | **cumulative** request counts — difference between samples; use the envelope for multi-replica apps |
+| `model_detections_<id>` | **per-window** counts (`window_start`/`window_end`) — don't difference across windows |
+
+For host/runtime telemetry (cpu/disk/connectivity — hundreds of metric names) use the **`edgeflows metrics`** family (requires `cogniac >= 3.2.0`) rather than hand-differencing status counters: `metrics names` lists the available names; `metrics list --metric-name <name>` returns Grafana-shaped `[timestamp_seconds, value]` series, tenant-wide or scoped to one device with `--edgeflow-id`. `--start/--end` are optional but must be supplied together (epoch seconds or ISO 8601).
 
 For deeper debugging beyond `cogniac edgeflows status` — pod logs, events, deployment state on the cluster itself — fetch a read-only kubeconfig via the SDK + Rancher and drive `kubectl` directly. Works for both EdgeFlow and CloudFlow clusters. See `references/edgeflow-kubectl-access.md`.
 
@@ -203,7 +231,7 @@ cogupload <subject_uid> <directory_name>
 cogstats -t "$COG_TENANT" [-g <gateway_id>] [-s <start_ts>] [-e <end_ts>]
 ```
 
-Reports pixel counts processed and detections emitted in the time window. Default window is the last five minutes. Note: `cogstats` requires the tenant as a `-t` flag — it does not read `COG_TENANT` from the environment automatically.
+Reports pixel counts processed and detections emitted in the time window. Default window is the last five minutes. Note: `cogstats` requires the tenant as a `-t` flag — it does not read `COG_TENANT` from the environment automatically. As of `cogniac >= 3.2.0` it sums across all per-model `model_detections_<id>` subsystems, so it reports correct totals for CloudFlow and per-model devices; earlier versions returned `0 detections / 0 pixels` for these even while they were actively processing.
 
 ## Common pitfalls
 
