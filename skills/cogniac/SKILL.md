@@ -142,9 +142,10 @@ cogniac edgeflows status <gateway_id> --subsystem http-input-<app_id> --start <t
                   | {path, count}]}]
         | ((max_by(.t).t) - (min_by(.t).t)) as $dt
         | ([.[].counters[]] | group_by(.path)
-           | map((max_by(.count).count) - (min_by(.count).count)) | add) / $dt'
+           | map((max_by(.count).count) - (min_by(.count).count)) | add // 0) as $reqs
+        | if $dt > 0 then $reqs / $dt else error("window needs >= 2 samples with /process traffic") end'
 ```
-The `group_by(.path)` matters: an `http_input` app commonly exposes more than one `/process` endpoint, so you must difference **each path independently** and then sum — collapsing all paths into one `max − min` mixes counts across endpoints and gives a wrong rate.
+The `group_by(.path)` matters: an `http_input` app commonly exposes more than one `/process` endpoint, so you must difference **each path independently** and then sum — collapsing all paths into one `max − min` mixes counts across endpoints and gives a wrong rate. The `add // 0` yields `0` for a window with no matching `/process` POST/200 traffic (instead of erroring on `null`), and the `$dt` guard gives a clear message when the window spans fewer than two distinct sample times rather than dividing by zero.
 
 **Multi-replica correctness.** When an `http_input` app runs more than one replica, the cumulative counter jumps or regresses as the agent samples different pods. **Track the per-endpoint cumulative max (upper envelope); never sum positive consecutive deltas** — naive delta-summing overcounts by ~20×. The per-path `max − min` above is envelope-safe.
 
