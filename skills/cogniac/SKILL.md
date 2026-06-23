@@ -127,20 +127,26 @@ cogniac edgeflows metrics list --metric-name <name> [--edgeflow-id <gateway_id>]
 
 `--subsystem` is an exact-match filter. Built-in subsystems include `gpus`, `upload`, per-deployed-model detection counters named `model_detections_<model_instance_id>` (one per model), and `http-input-<application_id>` (one per deployed `http_input` app — see below).
 
-**To discover what a device reports, use `--list-subsystems`** (requires `cogniac >= 3.2.0`): it returns `{subsystem, count, last_seen}` for each distinct subsystem regardless of sample frequency, then query a specific one — e.g. `--subsystem model_detections_<model_instance_id> --limit 5`. Don't page through unfiltered `status` for discovery: on a busy device the default page is entirely high-frequency `model_detections_*`, so low-frequency subsystems (`http-input-*`, `gpus`, `cpu`, `memory`) never appear. `--list-subsystems` scans up to `--scan-limit` records (default 8000); if it hits the cap it writes a `{"scan_capped": true}` notice to **stderr** (stdout stays pure JSON) — raise `--scan-limit` to widen the window.
+**To discover what a device reports, use `--list-subsystems`** (requires `cogniac >= 3.2.0`): it returns `{subsystem, last_seen, count}` for each distinct subsystem regardless of sample frequency, then query a specific one — e.g. `--subsystem model_detections_<model_instance_id> --limit 5`. Don't page through unfiltered `status` for discovery: on a busy device the default page is entirely high-frequency `model_detections_*`, so low-frequency subsystems (`http-input-*`, `gpus`, `cpu`, `memory`) never appear. `--list-subsystems` scans up to `--scan-limit` records (default 8000); if it hits the cap it writes a `{"scan_capped": true}` notice to **stderr** (stdout stays pure JSON) — raise `--scan-limit` to widen the window.
 
 Use `--start`/`--end` (epoch seconds or ISO 8601; requires `cogniac >= 3.2.0`) to slice a time window instead of paging `--limit`. They filter on the cloud-receipt clock (`cc_timestamp`), not device time — the two can diverge on a skewed or backfilling device.
 
 The `http-input-<application_id>` subsystem carries ingest-side request counts. Its samples have a `status.counters` array of `{path, method, status, count}` entries, where `count` is *cumulative*; differencing the `status == "200"` / `method == "POST"` counts between two samples and dividing by elapsed time gives the ingest request rate (req/s) — the offered load on that input, distinct from model latency. Two things make this the right tool for throughput trends: EdgeFlow status is retained far longer than container logs (days), so you can see a multi-day trend the cluster's rolling logs can't; and the same payload also holds an `http_request_duration_seconds` histogram (whole-request HTTP time, not model inference).
 
-**Computing ingest rate (req/s).** Pull a window with `--start/--end`, then difference the cumulative `POST`/`200` `/process` counts between the first and last sample and divide by elapsed time:
+**Computing ingest rate (req/s).** Pull a window with `--start/--end`, then for each `/process` endpoint difference its cumulative `POST`/`200` count across the window (`max − min`, the upper envelope), sum across endpoints, and divide by elapsed time:
 ```bash
 cogniac edgeflows status <gateway_id> --subsystem http-input-<app_id> --start <ts> --end <ts> \
   | jq '[.[] | {t: .gw_timestamp,
-                c: (.status.counters[] | select(.method=="POST" and .status=="200" and (.path|test("/process"))) | .count)}]
-        | (max_by(.c).c - min_by(.c).c) / ((max_by(.t).t) - (min_by(.t).t))'
+                counters: [.status.counters[]
+                  | select(.method=="POST" and .status=="200" and (.path|test("/process")))
+                  | {path, count}]}]
+        | ((max_by(.t).t) - (min_by(.t).t)) as $dt
+        | ([.[].counters[]] | group_by(.path)
+           | map((max_by(.count).count) - (min_by(.count).count)) | add) / $dt'
 ```
-**Multi-replica correctness.** When an `http_input` app runs more than one replica, the cumulative counter jumps or regresses as the agent samples different pods. **Track the per-endpoint cumulative max (upper envelope); never sum positive consecutive deltas** — naive delta-summing overcounts by ~20×. The first→last `max − min` above is envelope-safe.
+The `group_by(.path)` matters: an `http_input` app commonly exposes more than one `/process` endpoint, so you must difference **each path independently** and then sum — collapsing all paths into one `max − min` mixes counts across endpoints and gives a wrong rate.
+
+**Multi-replica correctness.** When an `http_input` app runs more than one replica, the cumulative counter jumps or regresses as the agent samples different pods. **Track the per-endpoint cumulative max (upper envelope); never sum positive consecutive deltas** — naive delta-summing overcounts by ~20×. The per-path `max − min` above is envelope-safe.
 
 **Timestamp schema.** Each status record carries up to three clocks: `gw_timestamp` (gateway sample clock, always present — the correct denominator for rate math), `cc_timestamp` (cloud-receipt clock, always present — what `--start/--end` filter on), and `timestamp` (guaranteed present in `cogniac >= 3.2.0`, aliased to `gw_timestamp` when the backend omits it). Sort/diff on `gw_timestamp`; on older builds ~15% of records lack `timestamp`, so `sort(key=lambda s: s["timestamp"])` `KeyError`s partway through a window.
 
