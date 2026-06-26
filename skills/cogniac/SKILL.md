@@ -30,10 +30,10 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.1.0**. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.2.0** — earlier versions lack the nested command tree and the agent-ergonomics features (`commands` catalog, `--format jsonl`, structured error envelope, typed timestamps). Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
-pip install 'cogniac>=3.1.0'
+pip install 'cogniac>=3.2.0'
 ```
 
 ### Authentication
@@ -66,6 +66,29 @@ Tenant selection: most commands also need a tenant. Set `COG_TENANT`, or pass th
 ## CLI Command Reference
 
 All commands output JSON. Pipe into `jq` to filter, project, or aggregate.
+
+### Command surface & conventions (cogniac >= 3.2.0)
+
+The CLI is a **nested noun → sub-noun → verb** tree — e.g. `application consensus release list`, `edgeflow event reboot`, `media detection create`, `deployment target workflow set`. Resource ids are `--<resource>-id` flags (`--application-id`, `--subject-uid`, `--edgeflow-id`, `--media-id`, …); the older **positional** spelling (`apps get <id>`) and the flat/hyphenated spellings still resolve as deprecated aliases, so the examples below remain valid. Singular/plural and synonym tokens are interchangeable in every position (`app`/`apps`/`application`, `edgeflow`/`gateway`, `cert`/`certificate`, `eval`/`evaluation`).
+
+**Discover the whole surface in one call** rather than walking `--help`:
+
+```bash
+cogniac commands        # JSON array of every command: [{command, help, args:[{name, positional, required, type, choices, help}]}]
+cogniac commands | jq -r '.[].command'                                 # list all command paths
+cogniac commands | jq '.[] | select(.command=="application events")'   # exact args for one command
+```
+
+Cross-cutting behavior that applies everywhere:
+
+- **Output format** — `--format json` (default) `| jsonl | table`. `jsonl` emits one object per line for large streams (compose with `--limit`, pipe to `jq`/`head`).
+- **Global flags anywhere** — `--format` and `--tenant` are accepted *before or after* the command (`cogniac application list --format jsonl`).
+- **Request bodies** — verbs that take `--body` accept inline JSON, `@FILE`, or `-` (stdin), so large payloads don't fight shell quoting. Update verbs also accept per-field flags as an alternative to `--body`.
+- **Timestamps** — `--start`/`--end` accept epoch seconds **or** ISO 8601.
+- **Pagination** — list verbs return the **complete result set by default** (the SDK follows the API's pagination automatically). Cap with `--limit N`, resume with `--cursor`. Two expensive reads keep a default cap: `edgeflow status` (`--limit 10`) and `subject media` (`--limit 100`) — pass a larger `--limit` to widen. When `--limit` truncates a result, a `{"truncated": true, …}` notice is written to **stderr** (stdout stays a clean array/stream).
+- **Errors** — failures print a structured envelope to **stderr** and exit non-zero: `{"error": {"type", "status", "message", "hint"}}`, where `type` is one of `auth` / `client` / `server` / `connection` / `rate_limit`. Branch on `type`; `hint` is an optional self-heal suggestion, present only when an action applies (e.g. an `auth` error hints to run `cogniac auth login`) — don't assume it's always there.
+
+Beyond the families documented below, the surface now also covers application sub-resources (`events`, `event types`, `detections pending`, `replay`, `performance`, `feedback`, `consensus history`/`consensus release`, `evaluation metrics`, `model` download/donate/export, `build`, `type`); `edgeflow event` device control (`reboot`/`ping`/`upgrade`/`factory-reset`/`flush-upload-queue`/`time-bound-media-upload`/`trigger-camera-capture`) and `edgeflow certificate`; `media detection`/`embeddings`/`share`; `subject detections`/`consensus history`/`disassociate`; `deployment` (`edgeflows`, `history`, `prepull`, `target workflow set`, `capacity`); `workflow` versions and deployment targets; and `user` + `user api-key` + `tenant user` management. Each name above is a namespace; the leaf commands that appear in `cogniac commands` are its verbs (e.g. `media detection` → `media detection {list,create}`), so filter on a full leaf path. Run `cogniac commands` (or `<noun> --help`) for the exact flags of any of these.
 
 ### Auth & Tenants
 
@@ -190,7 +213,8 @@ cogniac workflows get <workflow_id>              # get workflow details
 ### System
 
 ```bash
-cogniac version                                 # API version info
+cogniac --version                               # CLI/package version (the `cogniac version` subcommand was removed in 3.2.0)
+cogniac commands                                # full machine-readable command catalog (see above)
 ```
 
 ## Common Agent Workflows
@@ -248,7 +272,7 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 
 - **Multi-tenant accounts**: omitting `COG_TENANT` (or `tenant_id=` in the SDK) on a user authorized for more than one tenant causes `CogniacConnection()` to raise `ClientError(400): Unauthorized` at construction. Always set it explicitly — via `COG_TENANT`, the CLI's `--tenant` flag, or `tenant_id=` to the SDK. (The CLI's `cogniac auth` and `cogniac tenants` are the exceptions — they don't need a tenant.)
 - **Authentication**: prefer `cogniac auth login` (stored credential). If you also export `COG_API_KEY`, note it takes precedence over the stored login.
-- **Rate limits**: the public API enforces rate limits. Handle `429` responses with backoff; the SDK does not retry rate-limited calls automatically.
+- **Rate limits**: the public API enforces rate limits. As of `cogniac >= 3.2.0` the SDK/CLI retry `429` responses automatically with exponential backoff (honoring `Retry-After`); from the CLI a persistent `429` surfaces as an error envelope with `type: "rate_limit"`. On earlier versions you must handle `429` and back off yourself.
 - **Region / URL prefix**: the default `https://api.cogniac.io` points at Cogniac CloudCore. Override `COG_URL_PREFIX` (or pass `url_prefix=` to `CogniacConnection`) when targeting a different deployment. Either `https://host` or `https://host/` is accepted — the SDK strips trailing slashes and any `/<version>` suffix on load.
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
 - **Uploads are large**: prefer `cogupload` for bulk ingestion over a custom loop; it handles parallelism and retries.
