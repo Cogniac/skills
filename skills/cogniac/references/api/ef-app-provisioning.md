@@ -28,6 +28,12 @@ The typical customer lifecycle:
 5. Reference the workflow from a Deployment Group to push it to
    EdgeFlow / CloudFlow.
 
+To discover workflow bases without already knowing their `base_id`
+(e.g. "list every workflow in this tenant"), use
+`GET /1/tenants/current/workflows?base=True` rather than trying to
+reconstruct the set from Deployment Group history — history only
+covers bases that were actually deployed to a group.
+
 Workflow versions cannot be deleted while a Deployment Group still
 references them.
 
@@ -120,6 +126,45 @@ base's `latest_version`, `latest_workflow_id`, `name`, `description`,
   the model's pod capacity.
 - `401` — missing or invalid bearer token.
 - `500` — failed to persist workflow assets.
+
+### `GET /1/tenants/current/workflows`
+
+List workflows across the entire tenant — the only way to enumerate
+every workflow base without already knowing its `base_id`. Every other
+read endpoint in this service (`GET /1/workflows/{base_id}/versions`
+and friends) is scoped to a single base and requires the caller to
+already know it; this is the bulk/discovery endpoint.
+
+By default (no `base` param, or `base=False`) each page item is a
+version-level [WorkFlowSchema](#schema-workflowschema) record — every
+version of every base in the tenant, newest-`created_at`-first by
+default. Pass `base=True` to collapse to one row per workflow base
+(the latest version's [WorkFlowBaseSchema](#schema-workflowbaseschema)
+metadata) instead of one row per version — this is almost always what
+you want when the goal is "what workflows exist in this tenant" (e.g.
+auditing workflow names, finding orphaned/never-deployed bases that
+`GET /1/deploymentGroups/{deployment_group_id}/history` would miss).
+
+**Auth:** Bearer JWT required
+
+**Query params** (`WorkFlowVersionQuerySchema`, plus `base`):
+
+| Name | Type | Description |
+|---|---|---|
+| `base` | boolean | When true, return one row per workflow base ([WorkFlowBaseSchema](#schema-workflowbaseschema)) instead of one row per version. Default false. |
+| `reverse` | boolean | Newest-first when true (default). |
+| `limit` | integer | Max items per page (default 100). |
+| `last_key` | string | Pagination cursor returned by a previous call. |
+
+**Responses:**
+
+| Status | Description |
+|---|---|
+| 200 | `{ "data": [WorkFlowSchema or WorkFlowBaseSchema, ...], "last_key": <cursor or null> }` |
+
+**Errors:**
+
+- `401` — missing or invalid bearer token.
 
 ### `GET /1/workflows/{base_id}/versions`
 
