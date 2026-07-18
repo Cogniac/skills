@@ -242,6 +242,32 @@ cogniac media get <media_id> | jq '{media_id, filename, status}'
 cogniac deployments list | jq -r '[.[].target_workflow_id // empty] | unique | .[]' | while read wid; do cogniac workflows get "$wid"; done
 ```
 
+### List / audit every workflow base in the tenant
+The CLI's `workflow` namespace only covers a single base's versions and
+deployment targets — there's no bulk-list subcommand. Reconstructing
+the set from `deployments list` / deployment-group history only
+surfaces bases that were actually deployed to a group; it misses bases
+created but never deployed. To enumerate every workflow base in the
+tenant (e.g. to audit names or find orphaned bases), hit
+`GET /1/tenants/current/workflows?base=True` directly via the SDK's
+authenticated session, paginating on `last_key`:
+```python
+from cogniac import CogniacConnection
+cc = CogniacConnection()  # tenant from COG_TENANT / tenant_id=
+url = cc.url_prefix.rstrip('/') + '/1/tenants/current/workflows'
+bases, last_key = [], None
+while True:
+    params = {'base': True, **({'last_key': last_key} if last_key else {})}
+    d = cc.session.get(url, params=params, timeout=cc.timeout).json()
+    bases.extend(d['data'])
+    last_key = d.get('last_key')
+    if not last_key:
+        break
+```
+See `GET /1/tenants/current/workflows` in
+[ef-app-provisioning](references/api/ef-app-provisioning.md) for the
+full param/response reference.
+
 ## Python SDK
 
 For anything the CLI doesn't cover, use the Python SDK. The full reference is in `references/python-sdk.md`.
