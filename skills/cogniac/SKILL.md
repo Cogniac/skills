@@ -208,23 +208,23 @@ cogniac apps list | jq '[.[] | select(.type == "camera_capture") | .app_type_con
 ```bash
 cogniac deployments list                        # list all deployment groups
 cogniac deployments get <deployment_group_id>   # get specific deployment group
-cogniac deployment history --deployment-group-id <id>   # per-EdgeFlow deployment events (what was actually deployed, when)
+cogniac deployment history --deployment-group-id <id>   # per-EdgeFlow deployment events, newest first (--no-reverse for chronological)
 cogniac deployment deploy --deployment-group-id <id> --workflow-id <wf> [--now] [--timeout S]   # DISPATCH a rollout
-cogniac deployment deploy-status --deployment-group-id <id>   # convergence: target vs current vs pending next
+cogniac deployment deploy-status --deployment-group-id <id>   # convergence: {target, current, next, deploy_now, converged}
 cogniac workflows get <workflow_id>              # get workflow details (full record incl. app_specs)
 cogniac workflow version list --base-id <BASE>   # enumerate a base's versions, newest first
 cogniac workflow diff <workflow_a> <workflow_b>  # apps added/removed; per-app model-image & threshold changes
-cogniac workflow summary --workflow-id <id>      # per-app-spec model composition: app id/name, runtime image, thresholds
+cogniac workflow summary --workflow-id <id>      # model composition: wrapper object {workflow_id, version, app_count, apps: [...]}, NOT a bare array
 ```
 
-**Deploying vs. recording a target — these are different operations.** A deployment group tracks a small state machine: `target_workflow_id` (what the group should converge to), `current_workflow_id` (the last workflow actually applied), and `next_workflow_id` / `deploy_now_workflow_id` (a pending dispatch). `cogniac deployment target workflow set` only **records** the target — it does **not** deploy anything (since 3.3.0 it prints a stderr warning saying so). To actually roll out, use `cogniac deployment deploy`, which dispatches to every EdgeFlow in the group (immediately when the group has no schedule; `--now` bypasses the scheduler entirely). Verify with `deploy-status`: converged means `current == target` with `next` null.
+**Deploying vs. recording a target — these are different operations.** A deployment group tracks a small state machine: `target_workflow_id` (what the group should converge to), `current_workflow_id` (the last workflow actually applied), and `next_workflow_id` / `deploy_now_workflow_id` (a pending dispatch). `cogniac deployment target workflow set` only **records** the target — it does **not** deploy anything (since 3.3.0 it prints a stderr warning saying so). To actually roll out, use `cogniac deployment deploy`, which sets `next_workflow_id` and advances `target_workflow_id` to match on dispatch — so `deploy --workflow-id` supersedes any previously recorded target; you don't need `target workflow set` first. When the group has no schedule the dispatch is immediate; when a cron `scheduled_time` is configured, `next_workflow_id` stays populated until the scheduler's next tick (`--now` uses `deploy_now_workflow_id` and bypasses the scheduler entirely). Verify with `deploy-status`: its response includes a ready-made `converged` boolean (`current == target` with `next` null).
 
 Deploy-dispatch caveats:
 - The server blocks until every EdgeFlow accepts, so large groups can exceed the client read timeout (default 300s; raise with `--timeout`). **A client timeout does not mean the dispatch failed** — it often completed server-side. Check `deploy-status` before retrying; the dispatch is not idempotent and is deliberately not auto-retried.
 - `workflow version list` returns **summary records without `app_specs`** — fetch the full workflow (`workflows get`) before diffing or summarizing via the SDK. (`cogniac workflow diff A B` fetches full records itself.)
 - Attribution gotchas: a deployment group's `created_by` is its **original creator**, not whoever changed it last, and `deployment history` records do not carry the initiating user. Don't attribute recent changes from these fields.
 
-To find what changed between two deployed versions (e.g. investigating an unexpected rollout): get each group's `target_workflow_id` history from `deployment history`, then `cogniac workflow diff <old> <new>` — a single model-image retag across 100+ app specs shows up as one prominent `apps_changed` entry.
+To find what changed between two deployed versions (e.g. investigating an unexpected rollout): get each group's `target_workflow_id` history from `deployment history`, then `cogniac workflow diff <old> <new>` — a single model-image retag across 100+ app specs shows up as one prominent `apps_changed` entry. Note the diff output shows each prominent change twice — as a shorthand key (`model_runtime_image: {old, new}`) and again inside the full `changed` path map; it's one change, not two.
 
 ### System
 
@@ -243,7 +243,7 @@ cogniac apps list | jq --arg s "s1a2b3c4d5" '[.[] | select(.input_subjects[]? ==
 
 ### Check EdgeFlow fleet health
 ```bash
-cogniac edgeflows health                                          # whole fleet: {gateway_id, name, deployment_group_id, last_seen, online}
+cogniac edgeflows health                                          # whole fleet: {gateway_id, name, deployment_group_id, current_workflow_id, last_seen, online}
 cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU sample for one device
 ```
 `health` derives liveness client-side from each device's newest status record (cloud-receipt clock, one bounded GET per device) — it is not a true heartbeat; a device replaying backlogged status can briefly look online, and `online: null` means "could not determine" (fetch error), distinct from `false` (determined stale). The `last_seen`/`connection_status` fields on `edgeflows list`/`get` records are not populated by the backend.
