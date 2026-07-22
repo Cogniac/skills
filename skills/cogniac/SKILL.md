@@ -30,7 +30,7 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.3.0** — 3.2.0 introduced the nested command tree and the agent-ergonomics features (`commands` catalog, `--format jsonl`, structured error envelope, typed timestamps); 3.3.0 adds `deployment deploy`/`deploy-status`, `workflow version list`/`diff`/`summary`, and `edgeflows health`. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.3.0** — earlier versions lack some of the commands documented below. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
 pip install 'cogniac>=3.2.0'
