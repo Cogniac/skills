@@ -30,7 +30,7 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.2.0** — earlier versions lack the nested command tree and the agent-ergonomics features (`commands` catalog, `--format jsonl`, structured error envelope, typed timestamps). Check with `cogniac --version`. If the command is missing or older, install or upgrade:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.3.0** — 3.2.0 introduced the nested command tree and the agent-ergonomics features (`commands` catalog, `--format jsonl`, structured error envelope, typed timestamps); 3.3.0 adds `deployment deploy`/`deploy-status`, `workflow version list`/`diff`/`summary`, and `edgeflows health`. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
 pip install 'cogniac>=3.2.0'
@@ -88,7 +88,7 @@ Cross-cutting behavior that applies everywhere:
 - **Pagination** — list verbs return the **complete result set by default** (the SDK follows the API's pagination automatically). Cap with `--limit N`, resume with `--cursor`. Two expensive reads keep a default cap: `edgeflow status` (`--limit 10`) and `subject media` (`--limit 100`) — pass a larger `--limit` to widen. When `--limit` truncates a result, a `{"truncated": true, …}` notice is written to **stderr** (stdout stays a clean array/stream).
 - **Errors** — failures print a structured envelope to **stderr** and exit non-zero: `{"error": {"type", "status", "message", "hint"}}`, where `type` is one of `auth` / `client` / `server` / `connection` / `rate_limit`. Branch on `type`; `hint` is an optional self-heal suggestion, present only when an action applies (e.g. an `auth` error hints to run `cogniac auth login`) — don't assume it's always there.
 
-Beyond the families documented below, the surface now also covers application sub-resources (`events`, `event types`, `detections pending`, `replay`, `performance`, `feedback`, `consensus history`/`consensus release`, `evaluation metrics`, `model` download/donate/export, `build`, `type`); `edgeflow event` device control (`reboot`/`ping`/`upgrade`/`factory-reset`/`flush-upload-queue`/`time-bound-media-upload`/`trigger-camera-capture`) and `edgeflow certificate`; `media detection`/`embeddings`/`share`; `subject detections`/`consensus history`/`disassociate`; `deployment` (`edgeflows`, `history`, `prepull`, `target workflow set`, `capacity`); `workflow` versions and deployment targets; and `user` + `user api-key` + `tenant user` management. Each name above is a namespace; the leaf commands that appear in `cogniac commands` are its verbs (e.g. `media detection` → `media detection {list,create}`), so filter on a full leaf path. Run `cogniac commands` (or `<noun> --help`) for the exact flags of any of these.
+Beyond the families documented below, the surface now also covers application sub-resources (`events`, `event types`, `detections pending`, `replay`, `performance`, `feedback`, `consensus history`/`consensus release`, `evaluation metrics`, `model` download/donate/export, `build`, `type`); `edgeflow event` device control (`reboot`/`ping`/`upgrade`/`factory-reset`/`flush-upload-queue`/`time-bound-media-upload`/`trigger-camera-capture`) and `edgeflow certificate`; `media detection`/`embeddings`/`share`; `subject detections`/`consensus history`/`disassociate`; `deployment` (`edgeflows`, `history`, `prepull`, `target workflow set`, `deploy`, `deploy-status`, `capacity`); `workflow` versions, diff/summary, and deployment targets; and `user` + `user api-key` + `tenant user` management. Each name above is a namespace; the leaf commands that appear in `cogniac commands` are its verbs (e.g. `media detection` → `media detection {list,create}`), so filter on a full leaf path. Run `cogniac commands` (or `<noun> --help`) for the exact flags of any of these.
 
 ### Auth & Tenants
 
@@ -138,8 +138,9 @@ cogniac media upload /path/to/image.jpg --subject-uid <subject_uid>  # upload an
 ### EdgeFlows
 
 ```bash
-cogniac edgeflows list                          # list all EdgeFlow devices
+cogniac edgeflows list                          # list all EdgeFlow devices (note: last_seen/connection_status are null — use `health`)
 cogniac edgeflows get <gateway_id>              # get device details
+cogniac edgeflows health [--stale-minutes N]    # per-device liveness: last_seen + online, derived from latest status record (3.3.0+)
 cogniac edgeflows status <gateway_id>           # recent status events (all subsystems)
 cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1            # latest GPU sample
 cogniac edgeflows status <gateway_id> --list-subsystems                     # distinct subsystems a device reports
@@ -207,8 +208,23 @@ cogniac apps list | jq '[.[] | select(.type == "camera_capture") | .app_type_con
 ```bash
 cogniac deployments list                        # list all deployment groups
 cogniac deployments get <deployment_group_id>   # get specific deployment group
-cogniac workflows get <workflow_id>              # get workflow details
+cogniac deployment history --deployment-group-id <id>   # per-EdgeFlow deployment events (what was actually deployed, when)
+cogniac deployment deploy --deployment-group-id <id> --workflow-id <wf> [--now] [--timeout S]   # DISPATCH a rollout (3.3.0+)
+cogniac deployment deploy-status --deployment-group-id <id>   # convergence: target vs current vs pending next (3.3.0+)
+cogniac workflows get <workflow_id>              # get workflow details (full record incl. app_specs)
+cogniac workflow version list --base-id <BASE>   # enumerate a base's versions, newest first (3.3.0+)
+cogniac workflow diff <workflow_a> <workflow_b>  # apps added/removed; per-app model-image & threshold changes (3.3.0+)
+cogniac workflow summary --workflow-id <id>      # per-app-spec model composition: app id/name, runtime image, thresholds (3.3.0+)
 ```
+
+**Deploying vs. recording a target — these are different operations.** A deployment group tracks a small state machine: `target_workflow_id` (what the group should converge to), `current_workflow_id` (the last workflow actually applied), and `next_workflow_id` / `deploy_now_workflow_id` (a pending dispatch). `cogniac deployment target workflow set` only **records** the target — it does **not** deploy anything (since 3.3.0 it prints a stderr warning saying so). To actually roll out, use `cogniac deployment deploy`, which dispatches to every EdgeFlow in the group (immediately when the group has no schedule; `--now` bypasses the scheduler entirely). Verify with `deploy-status`: converged means `current == target` with `next` null.
+
+Deploy-dispatch caveats:
+- The server blocks until every EdgeFlow accepts, so large groups can exceed the client read timeout (default 300s; raise with `--timeout`). **A client timeout does not mean the dispatch failed** — it often completed server-side. Check `deploy-status` before retrying; the dispatch is not idempotent and is deliberately not auto-retried.
+- `workflow version list` returns **summary records without `app_specs`** — fetch the full workflow (`workflows get`) before diffing or summarizing via the SDK. (`cogniac workflow diff A B` fetches full records itself.)
+- Attribution gotchas: a deployment group's `created_by` is its **original creator**, not whoever changed it last, and `deployment history` records do not carry the initiating user. Don't attribute recent changes from these fields.
+
+To find what changed between two deployed versions (e.g. investigating an unexpected rollout): get each group's `target_workflow_id` history from `deployment history`, then `cogniac workflow diff <old> <new>` — a single model-image retag across 100+ app specs shows up as one prominent `apps_changed` entry.
 
 ### System
 
@@ -227,9 +243,10 @@ cogniac apps list | jq --arg s "s1a2b3c4d5" '[.[] | select(.input_subjects[]? ==
 
 ### Check EdgeFlow fleet health
 ```bash
-cogniac edgeflows list                                            # inspect JSON to pick the fields you need
+cogniac edgeflows health                                          # whole fleet: {gateway_id, name, deployment_group_id, last_seen, online}
 cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1  # latest GPU sample for one device
 ```
+`health` derives liveness client-side from each device's newest status record (cloud-receipt clock, one bounded GET per device) — it is not a true heartbeat; a device replaying backlogged status can briefly look online, and `online: null` means "could not determine" (fetch error), distinct from `false` (determined stale). The `last_seen`/`connection_status` fields on `edgeflows list`/`get` records are not populated by the backend.
 
 ### Trace media through the pipeline
 ```bash
