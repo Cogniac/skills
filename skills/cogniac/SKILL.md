@@ -33,7 +33,7 @@ Interact with the Cogniac enterprise AI computer vision platform.
 The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.3.0** — earlier versions lack some of the commands documented below. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
-pip install 'cogniac>=3.2.0'
+pip install 'cogniac>=3.3.0'
 ```
 
 ### Authentication
@@ -140,7 +140,7 @@ cogniac media upload /path/to/image.jpg --subject-uid <subject_uid>  # upload an
 ```bash
 cogniac edgeflows list                          # list all EdgeFlow devices (note: last_seen/connection_status are null — use `health`)
 cogniac edgeflows get <gateway_id>              # get device details
-cogniac edgeflows health [--stale-minutes N]    # per-device liveness: last_seen + online, derived from latest status record (3.3.0+)
+cogniac edgeflows health [--stale-minutes N]    # per-device liveness: last_seen + online, derived from latest status record
 cogniac edgeflows status <gateway_id>           # recent status events (all subsystems)
 cogniac edgeflows status <gateway_id> --subsystem gpus --limit 1            # latest GPU sample
 cogniac edgeflows status <gateway_id> --list-subsystems                     # distinct subsystems a device reports
@@ -209,12 +209,12 @@ cogniac apps list | jq '[.[] | select(.type == "camera_capture") | .app_type_con
 cogniac deployments list                        # list all deployment groups
 cogniac deployments get <deployment_group_id>   # get specific deployment group
 cogniac deployment history --deployment-group-id <id>   # per-EdgeFlow deployment events (what was actually deployed, when)
-cogniac deployment deploy --deployment-group-id <id> --workflow-id <wf> [--now] [--timeout S]   # DISPATCH a rollout (3.3.0+)
-cogniac deployment deploy-status --deployment-group-id <id>   # convergence: target vs current vs pending next (3.3.0+)
+cogniac deployment deploy --deployment-group-id <id> --workflow-id <wf> [--now] [--timeout S]   # DISPATCH a rollout
+cogniac deployment deploy-status --deployment-group-id <id>   # convergence: target vs current vs pending next
 cogniac workflows get <workflow_id>              # get workflow details (full record incl. app_specs)
-cogniac workflow version list --base-id <BASE>   # enumerate a base's versions, newest first (3.3.0+)
-cogniac workflow diff <workflow_a> <workflow_b>  # apps added/removed; per-app model-image & threshold changes (3.3.0+)
-cogniac workflow summary --workflow-id <id>      # per-app-spec model composition: app id/name, runtime image, thresholds (3.3.0+)
+cogniac workflow version list --base-id <BASE>   # enumerate a base's versions, newest first
+cogniac workflow diff <workflow_a> <workflow_b>  # apps added/removed; per-app model-image & threshold changes
+cogniac workflow summary --workflow-id <id>      # per-app-spec model composition: app id/name, runtime image, thresholds
 ```
 
 **Deploying vs. recording a target — these are different operations.** A deployment group tracks a small state machine: `target_workflow_id` (what the group should converge to), `current_workflow_id` (the last workflow actually applied), and `next_workflow_id` / `deploy_now_workflow_id` (a pending dispatch). `cogniac deployment target workflow set` only **records** the target — it does **not** deploy anything (since 3.3.0 it prints a stderr warning saying so). To actually roll out, use `cogniac deployment deploy`, which dispatches to every EdgeFlow in the group (immediately when the group has no schedule; `--now` bypasses the scheduler entirely). Verify with `deploy-status`: converged means `current == target` with `next` null.
