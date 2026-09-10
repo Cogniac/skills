@@ -43,22 +43,38 @@ readings, which query live state).
 
 ## Step 1: reach the broker
 
-Two routes. Try them in this order.
-
-**Kubeconfig, if one exists for the appliance.** Cluster contexts are named
-`ef-<tenant_id>-<gateway_id>`. Operators commonly keep per-gateway kubeconfigs
-in a local directory tree; ask where, rather than guessing a path.
+**Build a kubeconfig from the tenant's Rancher credential. Do not depend on a
+kubeconfig file someone happens to have locally** - that makes the skill work
+only on one person's machine. Every tenant record carries
+`edgeflow_rancher_user_token` and `edgeflow_rancher_endpoint`, so anyone with
+Cogniac API credentials for that tenant can reach the appliance.
 
 ```bash
-export KUBECONFIG=<path-to-kubeconfig>
-kubectl config current-context          # expect ef-<tenant>-<gateway>
-kubectl get pods -n default | grep rabbitmq
+scripts/appliance-kubeconfig.py <tenant_id> <gateway_id> --out kc.yaml
+export KUBECONFIG=$PWD/kc.yaml
 ```
 
-**Reverse SSH tunnel, when there is no kubeconfig.** This is the route for
-customer EdgeFlow appliances. It is a two-step process and it is *not* read-only
-- opening a tunnel changes state on a customer appliance, so get explicit
-authorization first. See `references/access.md`.
+The script reads the tenant record, resolves the Rancher cluster named
+`ef-<tenant_id>-<gateway_id>`, and writes a kubeconfig pointing at
+`<rancher>/k8s/clusters/<cluster_id>` with that token as the bearer credential.
+Rancher's `generateKubeconfig` action is not needed - the token *is* the
+credential a kubeconfig carries.
+
+**It verifies exec before returning.** Listing pods and streaming logs is a
+different Kubernetes permission from `create` on `pods/exec`, and a Rancher
+read-only project role grants the first while denying the second. The script
+runs `kubectl auth can-i create pods/exec` and fails with a clear message rather
+than letting a long sampling run die on a `Forbidden` halfway through. Do not
+skip that check on a tenant you have not used before.
+
+The file it writes holds a live credential. It is created 0600; delete it when
+you are done and never commit it.
+
+**Fall back only when that fails**: an operator-supplied kubeconfig, or for a
+customer EdgeFlow with no Rancher registration, a reverse SSH tunnel. The tunnel
+is *not* read-only - it changes state on a customer appliance - so get explicit
+authorization first. See `references/access.md` for both, and for the kubectl
+version-skew trap below.
 
 ### kubectl version skew will bite you
 

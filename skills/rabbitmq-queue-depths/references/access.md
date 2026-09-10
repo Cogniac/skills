@@ -1,45 +1,83 @@
 # Reaching the broker on an appliance
 
-Two routes, in order of preference.
+Three routes, in order of preference.
 
-## 1. Kubeconfig
+## 1. Build a kubeconfig from the tenant's Rancher credential (preferred)
 
-CloudFlow appliances, and any EdgeFlow onboarded with one, have a kubeconfig
-giving direct cluster access. Contexts are named `ef-<tenant_id>-<gateway_id>`,
-which is how you confirm you are pointed at the appliance you think you are.
+This is the route that works for anyone with Cogniac API credentials for the
+tenant, rather than only for whoever has the right file on their laptop. Prefer
+it always; a hand-held kubeconfig is a portability bug, not a shortcut.
+
+Every tenant record carries two fields:
+
+- `edgeflow_rancher_user_token` - a Rancher API bearer token
+- `edgeflow_rancher_endpoint` - the Rancher server
+
+Both are readable from `GET /1/tenants/current` (or `cogniac --tenant <t> tenant
+get`). Note they are deliberately ungated on the tenant API, so any caller with
+tenant read access can retrieve them - treat the token accordingly.
+
+Rancher proxies each appliance's Kubernetes API at
+`https://<rancher>/k8s/clusters/<cluster_id>`, and the token is the bearer
+credential for it. A kubeconfig is therefore just those two values in a
+template:
+
+```yaml
+clusters: [{name: X, cluster: {server: "https://<rancher>/k8s/clusters/<cluster_id>"}}]
+users:    [{name: X, user: {token: "<edgeflow_rancher_user_token>"}}]
+```
+
+Clusters are named `ef-<tenant_id>-<gateway_id>`, so a gateway id resolves to a
+cluster id with `GET /v3/clusters?name=ef-<tenant>-<gateway>`.
+
+`scripts/appliance-kubeconfig.py` does all of this. Rancher's
+`generateKubeconfig` action also exists and works, but it is unnecessary - it
+returns a kubeconfig carrying the same credential you already hold.
+
+This is the same mechanism `edgeflow-support/app-logs.py` uses to stream
+integration-app logs, and the same one the React frontend uses for its EdgeFlow
+views.
+
+### Verify exec before relying on it
+
+**Listing pods and streaming logs does not imply you can exec.** Running
+`rabbitmqctl` needs `create` on the `pods/exec` subresource, which is a distinct
+Kubernetes permission; a Rancher read-only project role grants pod reads and log
+streaming while denying exec. A tenant credential may therefore get you all the
+way to a working `kubectl get pods` and still fail on the first sample.
+
+Check it up front, so the failure arrives in one second rather than five minutes
+into a run:
+
+```bash
+kubectl auth can-i create pods/exec -n default
+```
+
+`appliance-kubeconfig.py` runs this by default and refuses to return a
+kubeconfig that cannot exec. If it reports `no`, the fix is a wider Rancher role
+for that tenant or an operator-supplied kubeconfig - not a retry.
+
+## 2. An operator-supplied kubeconfig
+
+Some operators keep per-gateway kubeconfigs locally. These work, and are a
+reasonable fallback when the tenant credential lacks exec, but do not build the
+skill's normal path on them: they exist on one machine and nobody else can run
+your procedure.
+
+Confirm you are pointed where you think you are:
 
 ```bash
 export KUBECONFIG=<path>
-kubectl config current-context
-kubectl get pods -n default | grep rabbitmq
+kubectl config current-context     # expect ef-<tenant>-<gateway>
 ```
 
-Operators keep these in a local directory tree, one per gateway. Ask where
-rather than guessing; the layout is a local convention, not a platform one.
+Be aware that a locally held Rancher token may be far broader than the tenant
+one - a `kubeconfig-u-*` token observed in practice could see the entire
+appliance fleet across every tenant, with `importYaml` available on each. Handle
+such files as fleet-wide credentials: keep them out of git, and prefer the
+tenant-scoped route above.
 
-### Version skew
-
-Appliances often run Kubernetes v1.19-era RKE2, far behind a current client.
-
-**Wrapper shims are the trap.** `kuberlr` (shipped by Rancher Desktop at
-`~/.rd/bin/kubectl`, and usually first on `PATH`) tries to fetch a client
-matching the server. For v1.19 on Apple Silicon that download 404s, because no
-`darwin/arm64` build of v1.19 exists. It is worse than a clean failure: it can
-fall back to a cached binary of another architecture and succeed *sometimes*,
-so the error looks intermittent and environment-dependent.
-
-Diagnose by running the real command, not `kubectl version`:
-
-```bash
-KUBECONFIG=<path> <candidate-kubectl> get pods -n default | grep rabbitmq
-```
-
-Resolve by pointing at a real binary rather than the shim. Either a cached
-client matching the server version, or a current client - a modern client
-normally handles `exec` against an old server despite the skew warning. Confirm
-both give identical output before trusting one for a long run.
-
-## 2. Reverse SSH tunnel
+## 3. Reverse SSH tunnel
 
 For customer EdgeFlow appliances with no kubeconfig. Two steps.
 
@@ -62,6 +100,28 @@ run `rabbitmqctl` directly. The tunnel is the only route.
 
 Appliances poll their command queue on an interval (commonly 20 s), so expect a
 short delay before the tunnel appears.
+
+## kubectl version skew (affects every route)
+
+Appliances often run Kubernetes v1.19-era RKE2, far behind a current client.
+
+**Wrapper shims are the trap.** `kuberlr` (shipped by Rancher Desktop at
+`~/.rd/bin/kubectl`, and usually first on `PATH`) tries to fetch a client
+matching the server. For v1.19 on Apple Silicon that download 404s, because no
+`darwin/arm64` build of v1.19 exists. It is worse than a clean failure: it can
+fall back to a cached binary of another architecture and succeed *sometimes*,
+so the error looks intermittent and environment-dependent.
+
+Diagnose by running the real command, not `kubectl version`:
+
+```bash
+KUBECONFIG=<path> <candidate-kubectl> get pods -n default | grep rabbitmq
+```
+
+Resolve by pointing at a real binary rather than the shim. Either a cached
+client matching the server version, or a current client - a modern client
+normally handles `exec` against an old server despite the skew warning. Confirm
+both give identical output before trusting one for a long run.
 
 ## What you cannot use
 
