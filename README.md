@@ -9,6 +9,7 @@ Skills are folders of instructions, scripts, and resources that agents load dyna
 ## What's included
 
 - [`skills/cogniac`](./skills/cogniac) — Core skill covering the `cogniac` CLI, Python SDK, and public API. Use for EdgeFlow/CloudFlow management, tenant/app/subject/media operations, VLM-assisted labeling, camera inventory, deployments, and other CloudCore operations via direct public-API access.
+- [`skills/rabbitmq-queue-depths`](./skills/rabbitmq-queue-depths) — Sample and report RabbitMQ queue depths on EdgeFlow/CloudFlow appliances, to find out whether media or application pipelines are backing up. Covers reaching the broker, read-only sampling over time, and turning the samples into a report.
 
 ## Install
 
