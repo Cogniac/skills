@@ -11,11 +11,17 @@ it always; a hand-held kubeconfig is a portability bug, not a shortcut.
 Every tenant record carries two fields:
 
 - `edgeflow_rancher_user_token` - a Rancher API bearer token
-- `edgeflow_rancher_endpoint` - the Rancher server
+- `edgeflow_rancher_endpoint` - the Rancher **versioned API root**, e.g.
+  `https://host:5001/v3` - not the server root
 
 Both are readable from `GET /1/tenants/current` (or `cogniac --tenant <t> tenant
 get`). Note they are deliberately ungated on the tenant API, so any caller with
 tenant read access can retrieve them - treat the token accordingly.
+
+Because the endpoint is already versioned, ask it for its own `links` map rather
+than appending `/v3` yourself, and derive the `/k8s/clusters/<id>` proxy URL from
+the scheme and host - the k8s proxy hangs off the *server* root. Appending to the
+API root yields a confusing `404 failed to find schema v3`.
 
 Rancher proxies each appliance's Kubernetes API at
 `https://<rancher>/k8s/clusters/<cluster_id>`, and the token is the bearer
@@ -54,8 +60,45 @@ kubectl auth can-i create pods/exec -n default
 ```
 
 `appliance-kubeconfig.py` runs this by default and refuses to return a
-kubeconfig that cannot exec. If it reports `no`, the fix is a wider Rancher role
-for that tenant or an operator-supplied kubeconfig - not a retry.
+kubeconfig that cannot exec.
+
+### Measured result
+
+On the one tenant tested (2026-09-10), the tenant token:
+
+| capability | result |
+|---|---|
+| resolve `ef-<tenant>-<gateway>` to a cluster id | works |
+| list pods | works (424 pods) |
+| read pod logs | works |
+| **exec into a pod** | **Forbidden** |
+
+The real attempt, not just `auth can-i`, returned
+`User "u-..." cannot create resource "pods/exec" in API group "" in the
+namespace "default"`. The tenant token maps to a *restricted Rancher user*,
+distinct from the user behind an operator's kubeconfig - which is why one execs
+and the other does not.
+
+That is one tenant, and roles may differ elsewhere, so probe rather than assume.
+But plan for this route to be read-only until proven otherwise on your
+deployment.
+
+### Do not reflexively widen the role
+
+The obvious response to a refusal is to add `pods/exec` to the tenant Rancher
+role. Weigh that carefully rather than filing it as a config tweak.
+
+`edgeflow_rancher_user_token` is deliberately ungated on the tenant API, so any
+caller with tenant read access can retrieve it. Today that yields read-only
+visibility plus logs. Granting it exec turns every tenant-scoped API credential
+into shell access on that tenant's appliance pods, with no extra gate - a
+privilege escalation opened for operational convenience.
+
+A **separate ops Rancher credential** carrying exec, issued to the people who
+need it, gives a whole team this route without changing what a tenant token can
+do. That is the better answer in most cases; if the tenant role is widened
+anyway, it should be a decision someone owns, not a side effect of getting a
+script to run.
 
 ## 2. An operator-supplied kubeconfig
 

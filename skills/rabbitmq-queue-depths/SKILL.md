@@ -60,21 +60,40 @@ The script reads the tenant record, resolves the Rancher cluster named
 Rancher's `generateKubeconfig` action is not needed - the token *is* the
 credential a kubeconfig carries.
 
-**It verifies exec before returning.** Listing pods and streaming logs is a
-different Kubernetes permission from `create` on `pods/exec`, and a Rancher
-read-only project role grants the first while denying the second. The script
-runs `kubectl auth can-i create pods/exec` and fails with a clear message rather
-than letting a long sampling run die on a `Forbidden` halfway through. Do not
-skip that check on a tenant you have not used before.
+**It verifies exec before returning, and that check earns its place.** Listing
+pods and streaming logs is a different Kubernetes permission from `create` on
+`pods/exec`, and a Rancher read-only project role grants the first while denying
+the second.
+
+**Measured: on the one tenant tested, the tenant token could resolve the
+cluster, list 424 pods and read logs, but exec was refused** -
+`User "u-..." cannot create resource "pods/exec"`. The tenant token maps to a
+restricted Rancher user, distinct from the one behind an operator's kubeconfig.
+So expect this route to get you a working `kubectl get pods` and still fail on
+the first sample, unless your deployment has widened that role.
+
+That is one tenant, not proof about every tenant, which is why the script probes
+instead of assuming. Do not pass `--no-verify` on a tenant you have not used
+before: the check costs one second and the alternative is a `Forbidden` five
+minutes into a sampling run.
 
 The file it writes holds a live credential. It is created 0600; delete it when
 you are done and never commit it.
 
-**Fall back only when that fails**: an operator-supplied kubeconfig, or for a
-customer EdgeFlow with no Rancher registration, a reverse SSH tunnel. The tunnel
-is *not* read-only - it changes state on a customer appliance - so get explicit
-authorization first. See `references/access.md` for both, and for the kubectl
-version-skew trap below.
+**When exec is refused**, fall back to an operator-supplied kubeconfig, or for
+a customer EdgeFlow with no Rancher registration, a reverse SSH tunnel. The
+tunnel is *not* read-only - it changes state on a customer appliance - so get
+explicit authorization first.
+
+Do not "fix" a refusal by asking for `pods/exec` to be added to the tenant
+Rancher role without someone owning that decision. The tenant token is
+deliberately ungated on the tenant API, so anyone with tenant read access can
+retrieve it; granting it exec turns every tenant-scoped API credential into
+shell access on that tenant's appliance pods. A separate ops credential carrying
+exec is the safer way to make this route work for a whole team.
+
+See `references/access.md` for all three routes and the kubectl version-skew
+trap.
 
 ### kubectl version skew will bite you
 

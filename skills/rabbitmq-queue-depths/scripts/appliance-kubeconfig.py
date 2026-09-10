@@ -31,6 +31,7 @@ import ssl
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 KUBECONFIG_TEMPLATE = """apiVersion: v1
@@ -64,20 +65,21 @@ def tenant_record(tenant):
         sys.exit(f"unexpected output from cogniac: {p.stdout[:200]}")
 
 
-def rancher_get(base, token, path):
-    r = urllib.request.Request(base + path)
+def rancher_get(url, token):
+    """GET an absolute Rancher URL. Full TLS verification: the token rides on
+    every request."""
+    r = urllib.request.Request(url)
     r.add_header("Authorization", "Bearer " + token)
     r.add_header("Accept", "application/json")
-    # Full TLS verification: the token is sent on every request.
     try:
         with urllib.request.urlopen(r, timeout=40,
                                     context=ssl.create_default_context()) as f:
             return json.load(f)
     except urllib.error.HTTPError as e:
-        sys.exit(f"rancher {path} -> HTTP {e.code}: "
+        sys.exit(f"rancher GET {url} -> HTTP {e.code}: "
                  f"{e.read()[:160].decode(errors='replace')}")
     except Exception as e:
-        sys.exit(f"rancher {path} -> {e}")
+        sys.exit(f"rancher GET {url} -> {e}")
 
 
 def main():
@@ -102,17 +104,28 @@ def main():
         sys.exit(f"tenant {a.tenant} has no edgeflow_rancher_user_token / "
                  f"edgeflow_rancher_endpoint; ask an operator for a kubeconfig")
 
-    base = endpoint.rstrip("/")
-    if not base.startswith("http"):
-        base = "https://" + base
+    api_root = endpoint.rstrip("/")
+    if not api_root.startswith("http"):
+        api_root = "https://" + api_root
+
+    # edgeflow_rancher_endpoint points at the versioned API root (e.g.
+    # https://host:5001/v3), not the server root. Ask it for its own link map
+    # rather than assuming a path layout - the same thing app-logs.py does.
+    links = rancher_get(api_root, token).get("links", {})
+    clusters_url = links.get("clusters") or f"{api_root}/clusters"
 
     cluster_name = f"ef-{a.tenant}-{a.gateway}"
-    data = rancher_get(base, token, f"/v3/clusters?name={cluster_name}").get("data", [])
+    data = rancher_get(f"{clusters_url}?name={cluster_name}", token).get("data", [])
     if not data:
         sys.exit(f"no Rancher cluster named {cluster_name}. Check the gateway id, "
                  f"and that this credential can see that cluster.")
     cluster = data[0]
-    server = f"{base}/k8s/clusters/{cluster['id']}"
+
+    # The k8s proxy hangs off the server root, not the API root, so strip the
+    # trailing version segment rather than appending to it.
+    parts = urllib.parse.urlsplit(api_root)
+    server_root = f"{parts.scheme}://{parts.netloc}"
+    server = f"{server_root}/k8s/clusters/{cluster['id']}"
     log(f"cluster {cluster_name} -> {cluster['id']} (state: {cluster.get('state')})")
 
     out = a.out or f"kubeconfig-{a.gateway}.yaml"
