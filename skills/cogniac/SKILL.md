@@ -123,7 +123,7 @@ cogniac application evaluation metrics set-primary --application-id <id> --evalu
 cogniac application evaluation metrics delete --application-id <id> --evaluation-metric-hash <hash>   # not the primary
 ```
 
-Hashes come from `apps eval-metrics`. Read `schema` before choosing or configuring a metric; a schema with `x-scorer: null` is accepted but not scored.
+Hashes come from `apps eval-metrics`. Read `schema` before choosing or configuring a metric.
 
 ### Descriptions
 
