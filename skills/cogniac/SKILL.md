@@ -113,6 +113,18 @@ cogniac apps evaluate --application-id <id> --predictions preds.jsonl [--consens
 
 Prediction fields by app type: the [SDK README](https://github.com/Cogniac/cogniac-sdk-py#synchronous-api), after the `evaluate` example.
 
+### Evaluation metrics
+
+An app has up to five active evaluation metrics; models are ranked and released by the primary one (cogniac >= 3.5.0):
+
+```bash
+cogniac application evaluation metrics schema [--name box_F1]    # what each metric scores; its parameters, defaults, ranges
+cogniac application evaluation metrics set-primary --application-id <id> --evaluation-metric-hash <hash>
+cogniac application evaluation metrics delete --application-id <id> --evaluation-metric-hash <hash>   # not the primary
+```
+
+Hashes come from `apps eval-metrics`. Read `schema` before choosing or configuring a metric; a schema with `x-scorer: null` is accepted but not scored.
+
 ### Descriptions
 
 Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file, e.g. under git (cogniac >= 3.4.0):

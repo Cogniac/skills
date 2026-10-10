@@ -81,6 +81,30 @@ The metric `name` is validated against the application's `type` (different app t
 | 404 | A delete or re-activate was requested but no evaluation metric exists for the supplied parameters. |
 | 409 | `active=0` and `primary=1` were supplied together (primary metric cannot be deleted). |
 
+### `Evaluations`
+
+#### `POST /22/applications/{application_id}/evaluations` <a id='op-post-22-applications--application-id--evaluations-post'></a>
+
+**Score your own predictions against a consensus release.**
+
+Scores caller-supplied predictions with the same scorer CloudCore uses for the application's models, synchronously. Nothing is stored and nothing reaches the leaderboard. Supported application types: `detection_fullframe`, `classification`, `box_detection`, `point_detection` and `ocr`, with their `F1`/`recall`/`precision`, `box_*`, `point_*` and `ocr_*` metrics. In the CLI: `cogniac application evaluate`; in the SDK: `app.evaluate(predictions, ...)`, whose README lists the prediction fields per app type.
+
+**Auth:** Bearer JWT required; the application must belong to the token's tenant.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `predictions` | list[object] | **yes** | One per (media, focus, subject): `media_id`, `subject_uid`, optional `focus` (the release label's focus, whole), and by app type `probability`, `boxes` (`x0`, `y0`, `x1`, `y1`, optional `probability`, in image pixels), `points` (`x`, `y`, optional `probability`) or `text`. No size limit. |
+| `consensus_release_id` | string | no | Default: the application's latest consensus release. |
+| `evaluation_metric_hash` | string | no | Default: the application's primary evaluation metric. |
+| `label` | string | no | Free text echoed in the response. |
+| `allow_unscorable` | boolean | no | Default false: a request with predictions that can't be scored (e.g. a media or focus not in the release) is rejected; true scores the rest. |
+
+**Response (200):** `consensus_release_id`, `evaluation_metric_hash` and `evaluation_metric` (the configuration used), `scorer` (`{family, version, service}`), `submitted` and `coverage` counts, `unscorable` (the predictions not scored), `summary` (per set the scorer's summary, plus `combined` over sets), and `unit_results` (per unit and set: `TP`, `FP`, `FN`, and `badness` where the scorer reports one).
+
+**Errors:** 400 for an unsupported app type or metric, no primary metric or consensus release, an `ocr` app without exactly one output subject, invalid predictions, `unscorable_predictions` (with `allow_unscorable` false) or `no_scorable_predictions` (the body's `message.unscorable` lists them), or a request the scorer rejects; 403 for an application outside the token's tenant; 404 for an unknown metric hash or release; 502 when the scorer fails or can't be reached.
+
 ### `EvaluationMetricsSchemas`
 
 #### `GET /22/schemas/evaluation_metrics` <a id='op-get-22-schemas-evaluation-metrics-get'></a>
@@ -88,6 +112,8 @@ The metric `name` is validated against the application's `type` (different app t
 **Return the JSON Schema for evaluation metrics.**
 
 Returns the JSON Schema describing the request shape for a single evaluation metric. With no query parameter, returns a map of metric name to schema for every supported metric. Pass `name` to fetch the schema for a single metric (for example `box_F1` or `segmentation_IoU`). Useful for clients that want to render dynamic forms or validate metric configurations client-side.
+
+Each schema's `description` says what the metric scores (how predictions are matched to labels and counted, and what number models are ranked by), and each parameter's `description` what it means. `x-scorer` is `{family, version}` of the scorer, or `null` for a metric that is accepted but not scored: models evaluated with it get no score, so choose another. When the scorer can't be reached, schemas come back without `description` and `x-scorer`.
 
 **Auth:** Bearer JWT required
 
@@ -158,7 +184,7 @@ Area-based detection metric scored at a fixed detection threshold (F1 / precisio
 
 ### `AreaDetectionROC` <a id='schema-areadetectionroc'></a>
 
-Area-based detection metric scored as an area under a curve (ROC or precision-recall) across thresholds.
+Area-detection curve metrics. **Not scored:** `area_ROC` and `area_precision_recall` are accepted but no scorer implements them, so an evaluation with them fails.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
@@ -178,7 +204,7 @@ Bounding-box detection metric scored at a fixed detection threshold. A predicted
 
 ### `BoxDetectionROC` <a id='schema-boxdetectionroc'></a>
 
-Bounding-box detection metric scored as an area under a curve.
+Box-detection curve metrics. `box_precision_recall` is scored: a precision-recall curve and AP per subject, and their mean (`mAP`). **`box_ROC` is not scored:** it is accepted but no scorer implements it.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
@@ -219,7 +245,7 @@ Full-frame classification metric scored at a fixed detection threshold.
 
 ### `FullframeROC` <a id='schema-fullframeroc'></a>
 
-Full-frame classification metric scored as an area under a curve.
+Classification curve metrics. **Not scored:** `ROC` and `precision_recall` are accepted but no scorer implements them, so an evaluation with them fails.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
@@ -257,7 +283,7 @@ OCR (text-recognition) metric scored at a fixed detection threshold.
 
 ### `OcrROC` <a id='schema-ocrroc'></a>
 
-OCR metric scored as an area under a curve.
+OCR curve metrics. **Not scored:** `ocr_ROC` and `ocr_precision_recall` are accepted but no scorer implements them, so an evaluation with them fails.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
@@ -279,7 +305,7 @@ Point-counting metric scored at a fixed detection threshold. A predicted point m
 
 ### `PointCountROC` <a id='schema-pointcountroc'></a>
 
-Point-counting metric scored as an area under a curve.
+Point-count curve metrics. **Not scored:** `point_count_ROC` and `point_count_precision_recall` are accepted but no scorer implements them, so an evaluation with them fails.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
@@ -301,7 +327,7 @@ Point-detection metric scored at a fixed detection threshold.
 
 ### `PointDetectionROC` <a id='schema-pointdetectionroc'></a>
 
-Point-detection metric scored as an area under a curve.
+Point-detection curve metrics. **Not scored:** `point_ROC` and `point_precision_recall` are accepted but no scorer implements them, so an evaluation with them fails.
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
