@@ -113,7 +113,7 @@ cogniac apps evaluate --application-id <id> --predictions preds.jsonl [--consens
 
 ### Descriptions
 
-Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file under git (cogniac >= 3.4.0):
+Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file, e.g. under git (cogniac >= 3.4.0):
 
 ```bash
 cogniac --tenant <id> descriptions export [--application-id <id>]   # live descriptions -> descriptions-<tenant_id>.yaml
