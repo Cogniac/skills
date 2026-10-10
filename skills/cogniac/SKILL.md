@@ -106,7 +106,22 @@ cogniac apps list                               # list all apps in tenant
 cogniac apps get <application_id>               # get app details
 cogniac apps eval-metrics <application_id>      # list active evaluation-metric configs (point_count_F1, etc.) with detection thresholds, subject weights, primary/active flags
 cogniac apps leaderboard <application_id>       # ranked candidate-model snapshot. Flags: --set-assignment {validation,training}, --snapshot-type {regular,int8}, --eval-metrics {primary,all}, --top N, --full
+cogniac apps evaluate --application-id <id> --predictions preds.jsonl [--consensus-release-id R]
+                                                # (cogniac >= 3.4.0) score your own predictions (probability, boxes, points
+                                                # or OCR text) against a consensus release with CloudCore's scorer; stores nothing
 ```
+
+### Descriptions
+
+Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file under git (cogniac >= 3.4.0):
+
+```bash
+cogniac --tenant <id> descriptions export [--application-id <id>]   # live descriptions -> descriptions-<tenant_id>.yaml
+cogniac descriptions plan descriptions-<tenant_id>.yaml             # file vs live; exit 2 if anything differs
+cogniac descriptions apply descriptions-<tenant_id>.yaml --yes      # write the differences; unlisted entries are untouched
+```
+
+`apply` writes to the tenant: run it from a reviewed, merged file.
 
 ### Subjects
 
