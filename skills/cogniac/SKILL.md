@@ -30,10 +30,10 @@ Interact with the Cogniac enterprise AI computer vision platform.
 
 ## Setup
 
-The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.3.0** — earlier versions lack some of the commands documented below. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
+The `cogniac` CLI ships in the `cogniac` PyPI package (requires Python >= 3.11). Use **>= 3.4.0** — earlier versions lack some of the commands documented below. Check with `cogniac --version`. If the command is missing or older, install or upgrade:
 
 ```bash
-pip install 'cogniac>=3.3.0'
+pip install 'cogniac>=3.4.0'
 ```
 
 ### Authentication
@@ -106,7 +106,24 @@ cogniac apps list                               # list all apps in tenant
 cogniac apps get <application_id>               # get app details
 cogniac apps eval-metrics <application_id>      # list active evaluation-metric configs (point_count_F1, etc.) with detection thresholds, subject weights, primary/active flags
 cogniac apps leaderboard <application_id>       # ranked candidate-model snapshot. Flags: --set-assignment {validation,training}, --snapshot-type {regular,int8}, --eval-metrics {primary,all}, --top N, --full
+cogniac apps evaluate --application-id <id> --predictions preds.jsonl [--consensus-release-id R]
+                                                # (cogniac >= 3.4.0) score your own predictions (probability, boxes, points
+                                                # or OCR text) against a consensus release with CloudCore's scorer; stores nothing
 ```
+
+Prediction fields by app type: the [SDK README](https://github.com/Cogniac/cogniac-sdk-py#synchronous-api), after the `evaluate` example.
+
+### Descriptions
+
+Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file, e.g. under git (cogniac >= 3.4.0):
+
+```bash
+cogniac --tenant <id> descriptions export [--application-id <id>]   # live descriptions -> descriptions-<tenant_id>.yaml
+cogniac descriptions plan descriptions-<tenant_id>.yaml             # file vs live; exit 2 if anything differs
+cogniac descriptions apply descriptions-<tenant_id>.yaml --yes      # write the differences; unlisted entries are untouched
+```
+
+File format: the SDK README's [Descriptions under version control](https://github.com/Cogniac/cogniac-sdk-py#descriptions-under-version-control). `apply` writes to the tenant: run it from a reviewed, merged file.
 
 ### Subjects
 
