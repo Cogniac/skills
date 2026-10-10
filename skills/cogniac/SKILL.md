@@ -111,6 +111,8 @@ cogniac apps evaluate --application-id <id> --predictions preds.jsonl [--consens
                                                 # or OCR text) against a consensus release with CloudCore's scorer; stores nothing
 ```
 
+Prediction fields by app type: the [SDK README](https://github.com/Cogniac/cogniac-sdk-py#synchronous-api), after the `evaluate` example.
+
 ### Descriptions
 
 Tenant, app and subject descriptions kept in a `descriptions-<tenant_id>.yaml` file, e.g. under git (cogniac >= 3.4.0):
@@ -121,7 +123,7 @@ cogniac descriptions plan descriptions-<tenant_id>.yaml             # file vs li
 cogniac descriptions apply descriptions-<tenant_id>.yaml --yes      # write the differences; unlisted entries are untouched
 ```
 
-`apply` writes to the tenant: run it from a reviewed, merged file.
+File format: the SDK README's [Descriptions under version control](https://github.com/Cogniac/cogniac-sdk-py#descriptions-under-version-control). `apply` writes to the tenant: run it from a reviewed, merged file.
 
 ### Subjects
 
