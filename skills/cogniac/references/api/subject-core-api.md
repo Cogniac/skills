@@ -315,7 +315,9 @@ The request is accepted for asynchronous processing and returns a `subject_clean
 | `prev_prob` | number \| null | no | default=None; range(min=0, max=1) | Aggregate subject-media association probability immediately before this detection was applied. |
 | `activation` | string \| null | no |  | Optional activation marker associated with the detection. |
 | `inference_focus` | any \| null | no |  | Focus region (box, polygon, or mask) reported by the inference engine for this detection. |
-| `comment` | string | no | max length 4096 | Free-text note submitted with the assertion. Present only when one was sent. |
+| `comment` | string | no |  | Free-text note submitted with the assertion. Present only when one was sent. |
+
+> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
 
 ### `SubjectDetectionSchema` <a id='schema-subjectdetectionschema'></a>
 
@@ -358,6 +360,8 @@ The request is accepted for asynchronous processing and returns a `subject_clean
 | `uncal_prob` | nullfloat | no | default=None | Raw uncalibrated confidence in `[0, 1]`. Must be set when `consensus` is `None` and must be omitted otherwise. |
 | `enable_wait_result` | boolean | no | default=False | When `true`, prepares this assertion so a subsequent detections fetch can block until the assertion has been processed. |
 | `comment` | string | no | max length 4096 | Optional free-text note stored with the assertion and returned on detection reads. A longer value answers `400`. |
+
+> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
 
 ### `SubjectMediaSearch` <a id='schema-subjectmediasearch'></a>
 

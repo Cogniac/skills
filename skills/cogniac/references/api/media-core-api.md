@@ -250,6 +250,8 @@ Record detections (inferences or feedback) that were produced outside of Cogniac
 
 The request body is an `AppAssertionSchema` envelope containing a list of detections under the `assertions` (or `detections`) key. Each detection follows [DetectionSchema](#schema-detectionschema) and must identify the originating `app_id`, the `subject_uid` it asserts, an uncalibrated probability (`uncal_prob` in `[0, 1]`), the application-specific `app_data_type` and `app_data` (geometry, masks, etc.), and optionally a `focus` (e.g. a bounding box or region of interest within a parent image) and a `comment` (a free-text note of at most 4096 characters, stored with the assertion; a longer value fails validation and answers `404` like any other detection that fails to parse).
 
+> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
+
 Submitted detections are routed to the appropriate application processing pipeline. Detections with the legacy `app_data_type` value `custom` are silently dropped.
 
 **Auth:** Bearer JWT required
@@ -286,7 +288,9 @@ If `wait_capture_id` is supplied, the response blocks until the named capture op
 
 **Query parameters:** [MediaDetectionRequest](#schema-mediadetectionrequest)
 
-**Response:** [MediaDetectionSchema](#schema-mediadetectionschema)-shaped object containing `media_list`, `other_media`, `detections` (each carrying `detection_id`, `media_id`, `subject_uid`, optional `user_id`/`model_id`/`app_id`, `uncal_prob`, `created_at`, `prev_prob`, `probability`, optional `app_data_type`/`app_data`, and `comment` (at most 4096 characters) when one was submitted with the assertion). For `area_mask` / `area_mask_set` application types, the response embeds the area-mask PNG bytes as a base64-encoded string under `area_mask_png`.
+**Response:** [MediaDetectionSchema](#schema-mediadetectionschema)-shaped object containing `media_list`, `other_media`, `detections` (each carrying `detection_id`, `media_id`, `subject_uid`, optional `user_id`/`model_id`/`app_id`, `uncal_prob`, `created_at`, `prev_prob`, `probability`, optional `app_data_type`/`app_data`, and `comment` when one was submitted with the assertion). For `area_mask` / `area_mask_set` application types, the response embeds the area-mask PNG bytes as a base64-encoded string under `area_mask_png`.
+
+> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
 
 **Errors:**
 - `403` — media does not belong to the caller's tenant.
