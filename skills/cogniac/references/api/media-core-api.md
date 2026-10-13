@@ -248,7 +248,7 @@ Some application types only produce `'True'` or `null`.
 
 Record detections (inferences or feedback) that were produced outside of Cogniac cloud inference — for example, by an EdgeFlow appliance or a gateway forwarding results from a local model. The endpoint accepts the detections without re-running inference in the cloud.
 
-The request body is an `AppAssertionSchema` envelope containing a list of detections under the `assertions` (or `detections`) key. Each detection follows [DetectionSchema](#schema-detectionschema) and must identify the originating `app_id`, the `subject_uid` it asserts, an uncalibrated probability (`uncal_prob` in `[0, 1]`), the application-specific `app_data_type` and `app_data` (geometry, masks, etc.), and optionally a `focus` (e.g. a bounding box or region of interest within a parent image).
+The request body is an `AppAssertionSchema` envelope containing a list of detections under the `assertions` (or `detections`) key. Each detection follows [DetectionSchema](#schema-detectionschema) and must identify the originating `app_id`, the `subject_uid` it asserts, an uncalibrated probability (`uncal_prob` in `[0, 1]`), the application-specific `app_data_type` and `app_data` (geometry, masks, etc.), and optionally a `focus` (e.g. a bounding box or region of interest within a parent image) and a `comment` (a free-text note of at most 4096 characters, stored with the assertion; a longer value fails validation and answers `404` like any other detection that fails to parse).
 
 Submitted detections are routed to the appropriate application processing pipeline. Detections with the legacy `app_data_type` value `custom` are silently dropped.
 
@@ -286,7 +286,7 @@ If `wait_capture_id` is supplied, the response blocks until the named capture op
 
 **Query parameters:** [MediaDetectionRequest](#schema-mediadetectionrequest)
 
-**Response:** [MediaDetectionSchema](#schema-mediadetectionschema)-shaped object containing `media_list`, `other_media`, `detections` (each carrying `detection_id`, `media_id`, `subject_uid`, optional `user_id`/`model_id`/`app_id`, `uncal_prob`, `created_at`, `prev_prob`, `probability`, optional `app_data_type`/`app_data`). For `area_mask` / `area_mask_set` application types, the response embeds the area-mask PNG bytes as a base64-encoded string under `area_mask_png`.
+**Response:** [MediaDetectionSchema](#schema-mediadetectionschema)-shaped object containing `media_list`, `other_media`, `detections` (each carrying `detection_id`, `media_id`, `subject_uid`, optional `user_id`/`model_id`/`app_id`, `uncal_prob`, `created_at`, `prev_prob`, `probability`, optional `app_data_type`/`app_data`, and `comment` (at most 4096 characters) when one was submitted with the assertion). For `area_mask` / `area_mask_set` application types, the response embeds the area-mask PNG bytes as a base64-encoded string under `area_mask_png`.
 
 **Errors:**
 - `403` — media does not belong to the caller's tenant.

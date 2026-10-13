@@ -866,6 +866,7 @@ Export the application's currently released model as a Meraki camera artifact, s
 | `prev_prob` | number \| null | no | default=None; range(min=0, max=1) | Subject-media probability before this assertion was applied. |
 | `activation` | string \| null | no |  | Activation classification for the assertion. |
 | `inference_focus` | any \| null | no |  | Focus region produced by the inference, if any. |
+| `comment` | string | no | max length 4096 | Free-text note submitted with the assertion. Present only when one was sent. |
 
 ### `AppMediaDetectionSchema` <a id='schema-appmediadetectionschema'></a>
 
