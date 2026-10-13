@@ -318,6 +318,9 @@ A `PUT` records a new assertion against the feedback request rather than replaci
 | `focus` | any \| null | no | default=None | Region within the media the assertion applies to. |
 | `result` | string \| null | no | default=None; one of {'True', 'False', 'Sidelined'} | Reviewer's verdict for this subject on this media item. |
 | `uncal_prob` | number | no | range(min=0, max=1) | Uncalibrated probability associated with the assertion, if any. |
+| `comment` | string | no | max length 4096 | Optional free-text note (for example a rationale) stored with this subject's assertion, not on the feedback request. A longer value answers `400`. |
+
+> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
 
 ### `ClientDataSchema` <a id='schema-clientdataschema'></a>
 
