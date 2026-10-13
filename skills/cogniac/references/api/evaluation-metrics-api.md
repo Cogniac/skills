@@ -1,6 +1,6 @@
 # evaluation-metrics-api
 
-Manage the per-application evaluation metrics that Cogniac CloudCore uses to score model performance. An evaluation metric pairs a metric family (for example F1, ROC, IoU, Dice score, or count-based variants) with the parameters that control how detections are matched against ground truth (detection thresholds, IoU thresholds, pixel-distance tolerances, averaging method, and per-output-subject weights). Each application may have multiple registered metrics; exactly one of the active metrics is designated as the application's **primary** metric, which is the one used to rank candidate models during training and to drive release decisions.
+Manage the per-application evaluation metrics that Cogniac CloudCore uses to score model performance. An evaluation metric pairs a metric family (for example F1, a precision-recall curve, IoU, Dice score, or count-based variants) with the parameters that control how detections are matched against ground truth (detection thresholds, IoU thresholds, pixel-distance tolerances, averaging method, and per-output-subject weights). Each application may have multiple registered metrics; exactly one of the active metrics is designated as the application's **primary** metric, which is the one used to rank candidate models during training and to drive release decisions.
 
 Customers interact with this service in two ways. App managers (tenant administrators who are listed on the application's `app_managers`) use `POST /22/applications/{application_id}/evaluation_metrics` to register additional metrics, swap which metric is primary, or soft-delete a metric. Callers fetch the current set of metrics with `GET /22/applications/{application_id}/evaluation_metrics`. A separate schemas endpoint (`GET /22/schemas/evaluation_metrics`) returns the JSON Schema for every supported metric type so clients can build forms or validate requests offline.
 
@@ -81,6 +81,30 @@ The metric `name` is validated against the application's `type` (different app t
 | 404 | A delete or re-activate was requested but no evaluation metric exists for the supplied parameters. |
 | 409 | `active=0` and `primary=1` were supplied together (primary metric cannot be deleted). |
 
+### `Evaluations`
+
+#### `POST /22/applications/{application_id}/evaluations` <a id='op-post-22-applications--application-id--evaluations-post'></a>
+
+**Score your own predictions against a consensus release.**
+
+Scores caller-supplied predictions with the same scorer CloudCore uses for the application's models, synchronously. Nothing is stored and nothing reaches the leaderboard. Supported application types: `detection_fullframe`, `classification`, `box_detection`, `point_detection` and `ocr`, with their `F1`/`recall`/`precision`, `box_*`, `point_*` and `ocr_*` metrics. In the CLI: `cogniac application evaluate`; in the SDK: `app.evaluate(predictions, ...)`, whose README lists the prediction fields per app type.
+
+**Auth:** Bearer JWT required; the application must belong to the token's tenant.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `predictions` | list[object] | **yes** | One per (media, focus, subject): `media_id`, `subject_uid`, optional `focus` (the release label's focus, whole), and by app type `probability`, `boxes` (`x0`, `y0`, `x1`, `y1`, optional `probability`, in image pixels), `points` (`x`, `y`, optional `probability`) or `text`. No size limit. |
+| `consensus_release_id` | string | no | Default: the application's latest consensus release. |
+| `evaluation_metric_hash` | string | no | Default: the application's primary evaluation metric. |
+| `label` | string | no | Free text echoed in the response. |
+| `allow_unscorable` | boolean | no | Default false: a request with predictions that can't be scored (e.g. a media or focus not in the release) is rejected; true scores the rest. |
+
+**Response (200):** `consensus_release_id`, `evaluation_metric_hash` and `evaluation_metric` (the configuration used), `scorer` (`{family, version, service}`), `submitted` and `coverage` counts, `unscorable` (the predictions not scored), `summary` (per set the scorer's summary, plus `combined` over sets), and `unit_results` (per unit and set: `TP`, `FP`, `FN`, and `badness` where the scorer reports one).
+
+**Errors:** 400 for an unsupported app type or metric, no primary metric or consensus release, an `ocr` app without exactly one output subject, invalid predictions, `unscorable_predictions` (with `allow_unscorable` false) or `no_scorable_predictions` (the body's `message.unscorable` lists them), or a request the scorer rejects; 403 for an application outside the token's tenant; 404 for an unknown metric hash or release; 502 when the scorer fails or can't be reached.
+
 ### `EvaluationMetricsSchemas`
 
 #### `GET /22/schemas/evaluation_metrics` <a id='op-get-22-schemas-evaluation-metrics-get'></a>
@@ -88,6 +112,8 @@ The metric `name` is validated against the application's `type` (different app t
 **Return the JSON Schema for evaluation metrics.**
 
 Returns the JSON Schema describing the request shape for a single evaluation metric. With no query parameter, returns a map of metric name to schema for every supported metric. Pass `name` to fetch the schema for a single metric (for example `box_F1` or `segmentation_IoU`). Useful for clients that want to render dynamic forms or validate metric configurations client-side.
+
+Each schema's `description` says what the metric scores (how predictions are matched to labels and counted, and what number models are ranked by), and each parameter's `description` what it means. `x-scorer` is `{family, version}` of the scorer. When the scorer can't be reached, schemas come back without `description` and `x-scorer`.
 
 **Auth:** Bearer JWT required
 
@@ -156,15 +182,6 @@ Area-based detection metric scored at a fixed detection threshold (F1 / precisio
 | `max_is_better` | boolean | no | default=True | Indicates that larger metric values are better (used by the training pipeline to pick the best model). |
 | `name` | Literal['area_F1', 'area_any_F1', 'area_precision', 'area_any_precision', 'area_recall', 'area_any_recall'] | **yes** | | Specific area-detection metric variant. |
 
-### `AreaDetectionROC` <a id='schema-areadetectionroc'></a>
-
-Area-based detection metric scored as an area under a curve (ROC or precision-recall) across thresholds.
-
-| Field | Type | Required | Constraints | Description |
-|---|---|---|---|---|
-| `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['area_ROC', 'area_precision_recall'] | **yes** | | Specific area-detection curve metric. |
-
 ### `BoxDetectionFPR` <a id='schema-boxdetectionfpr'></a>
 
 Bounding-box detection metric scored at a fixed detection threshold. A predicted box is considered a match to a ground-truth box when their IoU exceeds `iou_threshold`.
@@ -176,15 +193,15 @@ Bounding-box detection metric scored at a fixed detection threshold. A predicted
 | `max_is_better` | boolean | no | default=True | Larger metric values are better. |
 | `name` | Literal['box_F1', 'box_any_F1', 'box_precision', 'box_any_precision', 'box_recall', 'box_any_recall'] | **yes** | | Specific box-detection metric variant. |
 
-### `BoxDetectionROC` <a id='schema-boxdetectionroc'></a>
+### `BoxPrecisionRecall` <a id='schema-boxprecisionrecall'></a>
 
-Bounding-box detection metric scored as an area under a curve.
+Box-detection precision-recall curve: a curve and AP per subject, and their mean (`mAP`).
 
 | Field | Type | Required | Constraints | Description |
 |---|---|---|---|---|
 | `iou_threshold` | string \| null | no | default='0.25' | Minimum IoU between predicted and ground-truth boxes for a positive match. |
 | `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['box_ROC', 'box_precision_recall'] | **yes** | | Specific box-detection curve metric. |
+| `name` | Literal['box_precision_recall'] | **yes** | | The metric name. |
 
 ### `BoxProbabilityDistance` <a id='schema-boxprobabilitydistance'></a>
 
@@ -217,15 +234,6 @@ Full-frame classification metric scored at a fixed detection threshold.
 | `max_is_better` | boolean | no | default=True | Larger metric values are better. |
 | `name` | Literal['F1', 'precision', 'recall'] | **yes** | | Specific full-frame metric variant. |
 
-### `FullframeROC` <a id='schema-fullframeroc'></a>
-
-Full-frame classification metric scored as an area under a curve.
-
-| Field | Type | Required | Constraints | Description |
-|---|---|---|---|---|
-| `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['ROC', 'precision_recall'] | **yes** | | Specific full-frame curve metric. |
-
 ### `GetApplicationEvaluationMetricResponse` <a id='schema-getapplicationevaluationmetricresponse'></a>
 
 Stored representation of a registered evaluation metric.
@@ -234,7 +242,7 @@ Stored representation of a registered evaluation metric.
 |---|---|---|---|---|
 | `active` | integer | **yes** | | `1` if the metric is currently active, `0` if it has been soft-deleted. |
 | `active_timestamp` | string | **yes** | pattern='^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$' | Unix timestamp (as a decimal string) of the metric's most recent activation. |
-| `evaluation_metric` | [FullframeFPR](#schema-fullframefpr) \| [FullframeROC](#schema-fullframeroc) \| [BoxDetectionFPR](#schema-boxdetectionfpr) \| [BoxDetectionROC](#schema-boxdetectionroc) \| [BoxProbabilityDistance](#schema-boxprobabilitydistance) \| [PointDetectionFPR](#schema-pointdetectionfpr) \| [PointDetectionROC](#schema-pointdetectionroc) \| [AreaDetectionFPR](#schema-areadetectionfpr) \| [AreaDetectionROC](#schema-areadetectionroc) \| [PointCountFPR](#schema-pointcountfpr) \| [PointCountROC](#schema-pointcountroc) \| [CountEuclidean](#schema-counteuclidean) \| [OcrFPR](#schema-ocrfpr) \| [OcrROC](#schema-ocrroc) \| [SegmentationIoU](#schema-segmentationiou) \| [SegmentationDiceScore](#schema-segmentationdicescore) | **yes** | | The metric's name and parameters, typed by metric family. |
+| `evaluation_metric` | [FullframeFPR](#schema-fullframefpr) \| [BoxDetectionFPR](#schema-boxdetectionfpr) \| [BoxPrecisionRecall](#schema-boxprecisionrecall) \| [BoxProbabilityDistance](#schema-boxprobabilitydistance) \| [PointDetectionFPR](#schema-pointdetectionfpr) \| [AreaDetectionFPR](#schema-areadetectionfpr) \| [PointCountFPR](#schema-pointcountfpr) \| [CountEuclidean](#schema-counteuclidean) \| [OcrFPR](#schema-ocrfpr) \| [SegmentationIoU](#schema-segmentationiou) \| [SegmentationDiceScore](#schema-segmentationdicescore) | **yes** | | The metric's name and parameters, typed by metric family. |
 | `evaluation_metric_hash` | string | **yes** | | Deterministic hash of the metric parameters; used as a stable identifier in subsequent requests. |
 | `primary` | integer | **yes** | | `1` if this is the application's primary metric, otherwise `0`. |
 | `user_tag` | string \| null | no | | Optional user-supplied tag carried alongside the metric for tracking purposes. |
@@ -255,15 +263,6 @@ OCR (text-recognition) metric scored at a fixed detection threshold.
 | `max_is_better` | boolean | no | default=True | Larger metric values are better. |
 | `name` | Literal['ocr_F1', 'ocr_precision', 'ocr_recall'] | **yes** | | Specific OCR metric variant. |
 
-### `OcrROC` <a id='schema-ocrroc'></a>
-
-OCR metric scored as an area under a curve.
-
-| Field | Type | Required | Constraints | Description |
-|---|---|---|---|---|
-| `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['ocr_ROC', 'ocr_precision_recall'] | **yes** | | Specific OCR curve metric. |
-
 ### `PointCountFPR` <a id='schema-pointcountfpr'></a>
 
 Point-counting metric scored at a fixed detection threshold. A predicted point matches ground truth when it lies within `pixel_distance_tolerance` pixels.
@@ -277,17 +276,6 @@ Point-counting metric scored at a fixed detection threshold. A predicted point m
 | `pixel_distance_tolerance` | string \| null | no | default='16' | Maximum pixel distance between a predicted point and a ground-truth point for a positive match. |
 | `subject_weights` | dict[str, number] \| null | no | | Optional per-output-subject weights used when aggregating the metric across subjects. |
 
-### `PointCountROC` <a id='schema-pointcountroc'></a>
-
-Point-counting metric scored as an area under a curve.
-
-| Field | Type | Required | Constraints | Description |
-|---|---|---|---|---|
-| `count_tolerance` | integer \| null | no | default=0 | Allowed absolute count difference before the prediction is marked incorrect. |
-| `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['point_count_ROC', 'point_count_precision_recall'] | **yes** | | Specific point-count curve metric. |
-| `pixel_distance_tolerance` | string \| null | no | default='16' | Maximum pixel distance between predicted and ground-truth points for a positive match. |
-
 ### `PointDetectionFPR` <a id='schema-pointdetectionfpr'></a>
 
 Point-detection metric scored at a fixed detection threshold.
@@ -297,16 +285,6 @@ Point-detection metric scored at a fixed detection threshold.
 | `detection_thresholds` | dict[str, string] \| list[dict[str, string]] \| null | no | default={'default': '0.5'} | Per-output-subject detection thresholds. |
 | `max_is_better` | boolean | no | default=True | Larger metric values are better. |
 | `name` | Literal['point_F1', 'point_any_F1', 'point_precision', 'point_any_precision', 'point_recall', 'point_any_recall'] | **yes** | | Specific point-detection metric variant. |
-| `pixel_distance_tolerance` | string \| null | no | default='4' | Maximum pixel distance between predicted and ground-truth points for a positive match. |
-
-### `PointDetectionROC` <a id='schema-pointdetectionroc'></a>
-
-Point-detection metric scored as an area under a curve.
-
-| Field | Type | Required | Constraints | Description |
-|---|---|---|---|---|
-| `max_is_better` | boolean | no | default=True | Larger metric values are better. |
-| `name` | Literal['point_ROC', 'point_precision_recall'] | **yes** | | Specific point-detection curve metric. |
 | `pixel_distance_tolerance` | string \| null | no | default='4' | Maximum pixel distance between predicted and ground-truth points for a positive match. |
 
 ### `PostEvaluationMetricRequest` <a id='schema-postevaluationmetricrequest'></a>
