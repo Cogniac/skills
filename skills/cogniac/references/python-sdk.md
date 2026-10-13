@@ -107,7 +107,7 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 - `app.download_model(model_id=None)` — downloads model file
 - `app.pending_feedback()` — returns count of pending feedback
 - `app.get_feedback(limit=10)` — returns feedback request messages
-- `app.post_feedback(media_id, subjects)` — submit feedback. Each subject dict may carry an optional `comment` (at most 4096 characters), stored with that subject's assertion
+- `app.post_feedback(media_id, subjects)` — submit feedback. Each subject dict may carry an optional `comment` (at most 4096 characters), stored with that subject's assertion. Not every production service supports it yet: see the rollout note in `references/api/feedback-service-api.md`
 - `app.usage(start, end)` — yields usage records
 - `app.accumulate_usage(start, end)` — returns cumulative usage
 - `app.evaluation_metrics()` — returns list of active evaluation metric configs (each with `evaluation_metric_hash`, `primary`/`active` flags, and the metric body — name, detection thresholds, subject weights, tolerances)
@@ -124,7 +124,7 @@ Prefer a wrapped method (`cc.get_application(id)`, `app.get_feedback()`, etc.) w
 
 ### Methods
 - `subject.media_associations(start=None, end=None, reverse=True, probability_lower=None, probability_upper=None, consensus=None, sort_probability=False, limit=None, abridged_media=True)` — yields association dicts. `abridged_media` defaults to True (server returns just `media_id` per row, faster); pass `abridged_media=False` to embed the full media dict.
-- `subject.associate_media(media, focus=None, consensus='None', probability=None, force_feedback=False, force_random_feedback=False, app_data=None, app_data_type=None, enable_wait_result=False, comment=None)` — associate media with subject. `comment` is an optional free-text note (at most 4096 characters) stored with the assertion; it is sent only when given
+- `subject.associate_media(media, focus=None, consensus='None', probability=None, force_feedback=False, force_random_feedback=False, app_data=None, app_data_type=None, enable_wait_result=False, comment=None)` — associate media with subject. `comment` is an optional free-text note (at most 4096 characters) stored with the assertion; it is sent only when given. Not every production service supports it yet: see the rollout note in `references/api/subject-core-api.md`
 - `subject.disassociate_media(media, focus=None)` — remove association
 - `subject.create_reference_media(filename, ...)` — upload reference media
 - `subject.delete()` — delete subject
