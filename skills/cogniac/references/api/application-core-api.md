@@ -868,8 +868,6 @@ Export the application's currently released model as a Meraki camera artifact, s
 | `inference_focus` | any \| null | no |  | Focus region produced by the inference, if any. |
 | `comment` | string | no |  | Free-text note submitted with the assertion. Present only when one was sent. |
 
-> **Rollout:** `comment` is defined by the current API source, but not every production service runs a build that supports it yet. Until those deployments complete, capture and detection submit ignore a `comment` (including an over-long one) and still succeed, detection reads from those services omit it, and feedback stores it only on requests served by a build that supports it.
-
 ### `AppMediaDetectionSchema` <a id='schema-appmediadetectionschema'></a>
 
 | Field | Type | Required | Constraints | Description |

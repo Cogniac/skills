@@ -349,7 +349,7 @@ Reports pixel counts processed and detections emitted in the time window. Defaul
 - **Subjects vs. applications**: subjects describe *what* you care about; applications describe *how* media flows between subjects. Don't conflate them.
 - **Uploads are large**: prefer `cogupload` for bulk ingestion over a custom loop; it handles parallelism and retries.
 - **Per-media fields default off**: `media_associations()` defaults to `abridged_media=True`, which omits `domain_unit`, `sequence_ix`, and full `app_data`. Pass `media_associations(abridged_media=False)` to get the full per-media dict (keeps SDK retry) — see the method's entry in `references/python-sdk.md`.
-- **Assertion comment**: feedback, capture and detection submit accept an optional `comment` (at most 4096 characters) that is stored with the assertion and returned on detection reads. From the SDK: `subject.associate_media(..., comment=...)`, or a `comment` key in each `app.post_feedback` subject dict. Not every production service supports it yet; see the rollout note in `references/api/`.
+- **Assertion comment**: feedback, capture and detection submit accept an optional `comment` (at most 4096 characters) that is stored with the assertion and returned on detection reads. From the SDK: `subject.associate_media(..., comment=...)`, or a `comment` key in each `app.post_feedback` subject dict.
 - **Deletion ordering**: deactivate apps before deleting them (`app.active = False`, save, then `.delete()`), and delete subjects only after the apps referencing them are gone. The wrong order returns unhelpful 4xx errors.
 
 ## References
