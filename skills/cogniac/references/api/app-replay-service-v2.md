@@ -12,9 +12,9 @@ All endpoints are scoped to V21 applications under the caller's tenant. The call
 
 **Start a replay**
 
-Initiates a new replay for one or more applications and returns a record describing the queued replay. Exactly one of `replay_subjects` or `replay_media` must be supplied in the request body: pass `replay_subjects` to replay a bounded selection of subject-media (optionally narrowed by probability range, time range, replay order, OCR filter, validation-set-only, and per-subject `limit`), or pass `replay_media` to replay a single media item (optionally with `foci`). When `replay_media` is used and `force_feedback` is not explicitly set, it defaults to `true`.
+Initiates a new replay for one or more applications and returns a list of records describing the queued replay, one per application. Exactly one of `replay_subjects` or `replay_media` must be supplied in the request body: pass `replay_subjects` to replay a bounded selection of subject-media (optionally narrowed by probability range, time range, replay order, OCR filter, validation-set-only, and per-subject `limit`), or pass `replay_media` to replay a single media item (optionally with `foci`). When `replay_media` is used and `force_feedback` is not explicitly set, it defaults to `true`.
 
-The same replay specification can be applied to several applications at once by passing a comma-separated list of application IDs in the path; this is intended for cases where the same media should be re-evaluated by multiple apps in a single call. Each application receives its own `replay_id`. The response is a single record when a single application is given and a list of records, one per application, when multiple are given.
+The same replay specification can be applied to several applications at once by passing a comma-separated list of application IDs in the path; this is intended for cases where the same media should be re-evaluated by multiple apps in a single call. One replay covers all the given applications, so every record carries the same `replay_id`. The response is always a list with one record per application, in the order given; a single application gives a list of one.
 
 Replays run asynchronously. Poll `GET /21/applications/{app_id}/replay/{replay_id}` to observe progress; call `DELETE /21/applications/{app_id}/replay/{replay_id}` to stop a replay before it completes.
 
@@ -28,7 +28,7 @@ Replays run asynchronously. Poll `GET /21/applications/{app_id}/replay/{replay_i
 
 **Request body:** [ReplayArgumentsSchema](#schema-replayargumentsschema)
 
-**Response:** [ReplayTableSchema](#schema-replaytableschema) — data if app_ids contains a single item else a list of that data, one per app_id
+**Response:** [ReplayTableSchema](#schema-replaytableschema) — a list of that data, one entry per app_id in the order given (a list of one for a single app_id)
 
 **Errors:**
 
